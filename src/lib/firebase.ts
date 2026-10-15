@@ -1,4 +1,5 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
+import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
 import { 
   initializeFirestore, 
   getFirestore, 
@@ -22,6 +23,11 @@ if (!getApps().length) {
 } else {
   app = getApps()[0];
 }
+
+// Inicialización de Firebase Authentication + Google OAuth Provider
+export const auth: Auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
+googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 // Configuración de Firestore con persistencia IndexedDB multiventana
 // Evita volver a leer toda la colección de 134 leads en cada F5 o visita móvil, protegiendo la cuota gratuita (Spark)

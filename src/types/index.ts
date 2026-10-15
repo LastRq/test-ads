@@ -41,8 +41,9 @@ export interface Lead {
 export interface ClientAccount {
   id: string; // Slug único ej: 'kindev', 'cliente-mendez'
   name: string;
+  username?: string; // Usuario o correo para iniciar sesión
   isMaster?: boolean;
-  clientPin: string; // PIN para que el cliente ingrese directo
+  clientPin: string; // Contraseña o PIN para que el cliente ingrese
   phone?: string;
   metaConfig: {
     datasetId: string;
@@ -116,7 +117,7 @@ export interface SystemApisStatus {
   };
 }
 
-export type TabView = 'kanban' | 'analytics' | 'ads_intelligence' | 'ltv_clients' | 'follow_up' | 'quick_list';
+export type TabView = 'kanban' | 'analytics' | 'ads_intelligence' | 'ltv_clients' | 'follow_up' | 'quick_list' | 'profile';
 
 export interface AdPerformanceItem {
   id: string;

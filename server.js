@@ -18,21 +18,26 @@ const FIRESTORE_REST_URL = 'https://firestore.googleapis.com/v1/projects/kindevm
 const FIRESTORE_STATUS_URL = 'https://firestore.googleapis.com/v1/projects/kindevmetaads/databases/(default)/documents/settings/whatsapp_status';
 const FIRESTORE_TELEMETRY_URL = 'https://firestore.googleapis.com/v1/projects/kindevmetaads/databases/(default)/documents/settings/meta_telemetry';
 
-// Cargar credenciales para Meta Conversions API (CAPI) Business Messaging
+// Cargar credenciales dinámicamente para Meta Conversions API (CAPI) Business Messaging
 let CAPI_ACCESS_TOKEN = process.env.META_ACCESS_TOKEN || '';
 let CAPI_DATASET_ID = process.env.META_DATASET_ID || '1368429478371391';
 
-try {
-  const tokenFile = path.join(__dirname, 'meta_access_token.txt');
-  if (fs.existsSync(tokenFile)) {
-    const raw = fs.readFileSync(tokenFile, 'utf8');
-    const tokenMatch = raw.match(/META_ACCESS_TOKEN=(.*)/);
-    const datasetMatch = raw.match(/META_DATASET_ID=(.*)/);
-    if (tokenMatch && tokenMatch[1]) CAPI_ACCESS_TOKEN = tokenMatch[1].trim();
-    if (datasetMatch && datasetMatch[1]) CAPI_DATASET_ID = datasetMatch[1].trim();
+function getCapiCredentials() {
+  let token = CAPI_ACCESS_TOKEN;
+  let datasetId = CAPI_DATASET_ID;
+  try {
+    const tokenFile = path.join(__dirname, 'meta_access_token.txt');
+    if (fs.existsSync(tokenFile)) {
+      const raw = fs.readFileSync(tokenFile, 'utf8');
+      const tokenMatch = raw.match(/META_ACCESS_TOKEN=(.*)/);
+      const datasetMatch = raw.match(/META_DATASET_ID=(.*)/);
+      if (tokenMatch && tokenMatch[1]) token = tokenMatch[1].trim();
+      if (datasetMatch && datasetMatch[1]) datasetId = datasetMatch[1].trim();
+    }
+  } catch (e) {
+    // ignore
   }
-} catch (e) {
-  // ignore
+  return { token, datasetId };
 }
 
 // Función SHA-256 para CAPI en Node.js
@@ -43,7 +48,8 @@ function hashSha256Node(val) {
 
 // Despacho de Eventos de Mensajería Empresarial (Click to WhatsApp / CTWA)
 async function dispatchCapiBusinessMessagingLead({ phone, name, remoteJid, text }) {
-  if (!CAPI_ACCESS_TOKEN || !phone) return null;
+  const { token: activeToken, datasetId: activeDatasetId } = getCapiCredentials();
+  if (!activeToken || !phone) return null;
 
   try {
     const cleanPh = String(phone).replace(/\D/g, '');
@@ -73,7 +79,7 @@ async function dispatchCapiBusinessMessagingLead({ phone, name, remoteJid, text 
       ]
     };
 
-    const url = `https://graph.facebook.com/v19.0/${CAPI_DATASET_ID}/events?access_token=${CAPI_ACCESS_TOKEN}`;
+    const url = `https://graph.facebook.com/v19.0/${activeDatasetId}/events?access_token=${activeToken}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1342,11 +1348,11 @@ app.get('/api/meta/insights', async (req, res) => {
   }
 
   try {
-    const campaignId = '120246770184380741'; // Campaña activa Kindev 2026
+    const campaignId = '120247110198030741'; // Campaña activa Webs Negocios - WhatsApp Filtrado - Kindev
     const campaignUrl = `https://graph.facebook.com/v19.0/${campaignId}/insights?fields=campaign_name,spend,impressions,reach,frequency,clicks,cpc,cpm,actions&access_token=${userToken}`;
     const campStatusUrl = `https://graph.facebook.com/v19.0/${campaignId}?fields=name,status,effective_status&access_token=${userToken}`;
     const breakdownUrl = `https://graph.facebook.com/v19.0/${campaignId}/insights?breakdowns=publisher_platform&fields=spend,impressions,clicks,actions&access_token=${userToken}`;
-    const adUrl = `https://graph.facebook.com/v19.0/120246770184360741?fields=name,status,creative{title,body}&access_token=${userToken}`;
+    const adUrl = `https://graph.facebook.com/v19.0/120247110198050741?fields=name,status,creative{title,body}&access_token=${userToken}`;
 
     const [campRes, campStatusRes, breakRes, adRes] = await Promise.all([
       fetch(campaignUrl),
@@ -1421,9 +1427,9 @@ app.get('/api/meta/insights', async (req, res) => {
       adAccountId,
       campaign: {
         id: campaignId,
-        name: campStatusData.name || campRow.campaign_name || 'capi Clientes Web WhatsApp - Kindev 2026',
-        status: campStatusData.status || 'PAUSED',
-        effectiveStatus: campStatusData.effective_status || 'PAUSED',
+        name: campStatusData.name || campRow.campaign_name || 'Webs Negocios - WhatsApp Filtrado - Kindev',
+        status: campStatusData.status || 'ACTIVE',
+        effectiveStatus: campStatusData.effective_status || 'ACTIVE',
         spend,
         impressions,
         reach,
@@ -1445,9 +1451,9 @@ app.get('/api/meta/insights', async (req, res) => {
         { platform: 'whatsapp', spend: 2.11, impressions: 958, clicks: 4, messages: 2, costPerMessage: 1.05, conversionRatePercent: 0.21 }
       ],
       activeAd: {
-        id: adData.id || '120246770184360741',
+        id: adData.id || '120247110198050741',
         name: adData.name || 'Anuncio Pag Web 1',
-        status: adData.effective_status || adData.status || 'PAUSED',
+        status: adData.effective_status || adData.status || 'ACTIVE',
         priceAnchor: '$120 USD',
         title: adData.creative?.title || 'Cotiza por WhatsApp',
         bodySnippet: adData.creative?.body ? adData.creative.body.slice(0, 200) + '...' : '¿Aún no tienes tu página web? En Kindev creamos tu sitio web por $120 USD...'
@@ -1508,7 +1514,7 @@ async function autoSyncMetaTelemetryJob() {
   try {
     const { userToken } = getMetaTokens();
     if (!userToken) return;
-    const campaignId = '120246770184380741';
+    const campaignId = '120247110198030741';
     const campaignUrl = `https://graph.facebook.com/v19.0/${campaignId}/insights?fields=campaign_name,spend,impressions,reach,frequency,clicks,cpc,cpm,actions&access_token=${userToken}`;
     const breakdownUrl = `https://graph.facebook.com/v19.0/${campaignId}/insights?breakdowns=publisher_platform&fields=spend,impressions,clicks,actions&access_token=${userToken}`;
     
@@ -1558,7 +1564,7 @@ async function autoSyncMetaTelemetryJob() {
       adAccountId: '4362799907368161',
       campaign: {
         id: campaignId,
-        name: campRow.campaign_name || 'capi Clientes Web WhatsApp - Kindev 2026',
+        name: campRow.campaign_name || 'Webs Negocios - WhatsApp Filtrado - Kindev',
         spend,
         impressions,
         reach: parseInt(campRow.reach || '17780', 10),

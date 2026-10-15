@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Menu, 
-  PlusCircle, 
   PanelLeftClose,
   PanelLeftOpen,
   ChevronDown,
@@ -29,6 +28,7 @@ interface TopBarProps {
   clients?: ClientAccount[];
   onSelectTenant?: (tenantId: string) => void;
   onOpenClientManager?: () => void;
+  onNavigateToProfileTab?: (subTab: 'production' | 'whatsapp' | 'clients' | 'webhooks' | 'security') => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -47,7 +47,8 @@ export const TopBar: React.FC<TopBarProps> = ({
   userRole = 'superadmin',
   clients = [],
   onSelectTenant,
-  onOpenClientManager
+  onOpenClientManager,
+  onNavigateToProfileTab
 }) => {
   const isWsConnected = wsStatus.isListening && wsStatus.status === 'connected';
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -88,6 +89,10 @@ export const TopBar: React.FC<TopBarProps> = ({
     quick_list: {
       title: 'Registro & Lista Rápida',
       subtitle: 'Captura de prospectos y listado paginado'
+    },
+    profile: {
+      title: 'Perfil & Configuración del Sistema',
+      subtitle: 'Producción, credenciales de Meta CAPI, infraestructura y seguridad'
     }
   };
 
@@ -203,9 +208,13 @@ export const TopBar: React.FC<TopBarProps> = ({
                     type="button"
                     onClick={() => {
                       setIsDropdownOpen(false);
-                      onOpenClientManager?.();
+                      if (onNavigateToProfileTab) {
+                        onNavigateToProfileTab('clients');
+                      } else {
+                        onOpenClientManager?.();
+                      }
                     }}
-                    className="w-full px-3 py-2 text-xs font-bold text-violet-600 hover:bg-violet-50 flex items-center gap-2 transition-colors"
+                    className="w-full px-3 py-2 text-xs font-bold text-violet-600 hover:bg-violet-50 flex items-center gap-2 transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     <span>Conectar / Gestionar Clientes</span>
@@ -242,9 +251,12 @@ export const TopBar: React.FC<TopBarProps> = ({
             {/* WhatsApp */}
             <button
               type="button"
-              onClick={onOpenWsStatus}
-              className="flex items-center gap-1.5 hover:text-slate-900 transition-colors"
-              title="API de WhatsApp (Baileys) — Clic para ver estado o escanear QR"
+              onClick={() => {
+                if (onNavigateToProfileTab) onNavigateToProfileTab('whatsapp');
+                else onOpenWsStatus?.();
+              }}
+              className="flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer"
+              title="API de WhatsApp (Baileys) — Clic para ver estado o vincular QR"
             >
               <span className={`w-2 h-2 rounded-full shrink-0 ${isWsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`} />
               <span className="text-[11px] font-semibold">{isWsConnected ? 'WhatsApp' : 'WhatsApp Inactivo'}</span>
@@ -255,9 +267,12 @@ export const TopBar: React.FC<TopBarProps> = ({
             {/* Meta Ads */}
             <button
               type="button"
-              onClick={onOpenMetaToken}
-              className="flex items-center gap-1.5 hover:text-slate-900 transition-colors"
-              title="Meta Graph & Marketing API — Clic para abrir Explorer o actualizar token"
+              onClick={() => {
+                if (onNavigateToProfileTab) onNavigateToProfileTab('production');
+                else onOpenMetaToken?.();
+              }}
+              className="flex items-center gap-1.5 hover:text-slate-900 transition-colors cursor-pointer"
+              title="Meta Graph & Marketing API — Clic para ver configuración y token"
             >
               <span className={`w-2 h-2 rounded-full shrink-0 ${apisStatus?.metaMarketing.active ? 'bg-indigo-600 animate-pulse' : 'bg-rose-500'}`} />
               <span className="text-[11px] font-semibold">{apisStatus?.metaMarketing.active ? 'Meta Ads' : 'Meta Ads!'}</span>
@@ -293,8 +308,11 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div className="sm:hidden flex items-center gap-1">
             <button
               type="button"
-              onClick={onOpenWsStatus}
-              className={`p-1.5 rounded-lg border text-xs font-bold transition-all ${
+              onClick={() => {
+                if (onNavigateToProfileTab) onNavigateToProfileTab('whatsapp');
+                else onOpenWsStatus?.();
+              }}
+              className={`p-1.5 rounded-lg border text-xs font-bold transition-all cursor-pointer ${
                 isWsConnected ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-rose-700 bg-rose-50 border-rose-200'
               }`}
             >
@@ -302,16 +320,18 @@ export const TopBar: React.FC<TopBarProps> = ({
             </button>
           </div>
 
-          {/* Botón Principal "+ Nuevo Contacto" */}
+          {/* Botón Principal "+ Nuevo Contacto" con Estilo Premium Kindev */}
           <button
             type="button"
             onClick={onAddNewLead}
-            className="h-8.5 px-3.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95 shrink-0"
+            className="h-9 px-3 sm:px-3.5 rounded-xl bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-600 hover:from-violet-500 hover:via-purple-500 hover:to-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 sm:gap-2 shadow-sm shadow-violet-600/25 hover:shadow-md hover:shadow-violet-600/35 border border-white/20 active:scale-95 transition-all shrink-0 cursor-pointer"
             aria-label="Registrar nuevo contacto"
           >
-            <PlusCircle className="w-3.5 h-3.5 text-violet-400 shrink-0" />
-            <span className="hidden sm:inline">Nuevo Contacto</span>
-            <span className="sm:hidden font-bold">Nuevo</span>
+            <div className="w-4 h-4 rounded-md bg-white/20 flex items-center justify-center shrink-0">
+              <Plus className="w-3 h-3 stroke-[2.5] text-white" />
+            </div>
+            <span className="hidden sm:inline font-bold tracking-tight">Nuevo Contacto</span>
+            <span className="sm:hidden font-bold tracking-tight">Contacto</span>
           </button>
         </div>
 

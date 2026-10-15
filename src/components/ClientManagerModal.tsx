@@ -40,6 +40,7 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
   // Form State
   const [name, setName] = useState('');
   const [id, setId] = useState('');
+  const [username, setUsername] = useState('');
   const [clientPin, setClientPin] = useState('');
   const [phone, setPhone] = useState('');
   const [datasetId, setDatasetId] = useState('');
@@ -57,6 +58,7 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
     setName('');
     const randomSlug = `cliente_${Date.now().toString(36).substring(3, 8)}`;
     setId(randomSlug);
+    setUsername('');
     setClientPin(`pass${Math.floor(1000 + Math.random() * 9000)}`);
     setPhone('');
     setDatasetId('');
@@ -71,6 +73,7 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
     setEditingClient(client);
     setName(client.name);
     setId(client.id);
+    setUsername(client.username || client.id || '');
     setClientPin(client.clientPin || '');
     setPhone(client.phone || '');
     setDatasetId(client.metaConfig?.datasetId || '');
@@ -94,9 +97,11 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
 
     setSaving(true);
     try {
+      const cleanSlug = id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
       const updatedClient: ClientAccount = {
-        id: id.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_'),
+        id: cleanSlug,
         name: name.trim(),
+        username: (username.trim() || cleanSlug).toLowerCase(),
         isMaster: editingClient?.isMaster || false,
         clientPin: clientPin.trim(),
         phone: phone.trim(),
@@ -112,7 +117,7 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
 
       await onSaveClient(updatedClient);
       onShowToast(
-        editingClient ? 'Cliente actualizado correctamente' : 'Nuevo cliente conectado con éxito',
+        editingClient ? 'Cliente actualizado correctamente' : 'Nuevo usuario/cliente creado con éxito',
         'success'
       );
       setMode('list');
@@ -124,7 +129,8 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
   };
 
   const copyAccessInfo = (client: ClientAccount) => {
-    const text = `🔐 Accesos al Panel de Meta Ads (${client.name})\nEnlace: ${window.location.origin}\nCódigo PIN de Acceso: ${client.clientPin}\nDataset ID: ${client.metaConfig.datasetId || 'Pendiente'}`;
+    const loginUser = client.username || client.id;
+    const text = `🔐 Accesos al Panel de Meta Ads (${client.name})\n🌐 Enlace: ${window.location.origin}\n👤 Usuario: ${loginUser}\n🔑 Contraseña / PIN: ${client.clientPin}\n📊 Dataset ID: ${client.metaConfig.datasetId || 'Pendiente'}`;
     navigator.clipboard.writeText(text);
     setCopiedKey(client.id);
     setTimeout(() => setCopiedKey(null), 2500);
@@ -254,11 +260,14 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
                               {client.name.substring(0, 2).toUpperCase()}
                             </div>
                             <div>
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-1.5">
                                 <h3 className="text-sm font-black text-slate-900">{client.name}</h3>
+                                <span className="text-[10px] font-mono bg-violet-50 px-1.5 py-0.5 rounded text-violet-700 border border-violet-200/70">
+                                  Usuario: {client.username || client.id}
+                                </span>
                                 {client.clientPin && (
                                   <span className="text-[10px] font-mono bg-slate-100 px-1.5 py-0.5 rounded text-slate-600 border border-slate-200">
-                                    PIN: {client.clientPin}
+                                    Clave: {client.clientPin}
                                   </span>
                                 )}
                               </div>
@@ -344,9 +353,14 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
                     type="text"
                     value={name}
                     onChange={(e) => {
-                      setName(e.target.value);
-                      if (!editingClient && !id) {
-                        setId(e.target.value.toLowerCase().trim().replace(/[^a-z0-9]/g, '_'));
+                      const val = e.target.value;
+                      setName(val);
+                      if (!editingClient) {
+                        const slug = val.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+                        if (slug) {
+                          setId(slug);
+                          if (!username) setUsername(slug);
+                        }
                       }
                     }}
                     placeholder="ej. Dr. Jesús Méndez"
@@ -371,10 +385,27 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
-                    PIN / Clave de Acceso del Cliente *
+                    Usuario o Correo de Login *
+                  </label>
+                  <input
+                    type="text"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="ej. dr_mendez o correo@..."
+                    required
+                    className="w-full px-3 py-2 text-xs font-mono rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
+                  />
+                  <p className="text-[10px] text-slate-400 mt-0.5">
+                    Usuario para iniciar sesión.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    Contraseña / PIN de Acceso *
                   </label>
                   <input
                     type="text"
@@ -385,7 +416,7 @@ export const ClientManagerModal: React.FC<ClientManagerModalProps> = ({
                     className="w-full px-3 py-2 text-xs font-mono rounded-xl bg-slate-50 border border-slate-200 focus:outline-none focus:border-violet-600 focus:ring-1 focus:ring-violet-600"
                   />
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    Clave con la que el cliente ingresará directamente a su propio panel.
+                    Clave privada del usuario.
                   </p>
                 </div>
 

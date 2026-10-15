@@ -27,7 +27,7 @@
 
 /* Utilidades para celulares (Safe Area y Scroll Táctil) */
 .pb-safe {
-  padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
 }
 
 .no-scrollbar::-webkit-scrollbar {

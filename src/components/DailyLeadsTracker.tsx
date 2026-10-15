@@ -249,7 +249,7 @@ export const DailyLeadsTracker: React.FC<DailyLeadsTrackerProps> = ({
   return (
     <div className="w-full space-y-2.5">
       {/* Grid Superior: Hoy, Ayer y Ritmo Semanal */}
-      <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-12 gap-2.5 sm:gap-3">
         
         {/* ─── TARJETA 1: HOY (En vivo con actualización en tiempo real) ─── */}
         <div 
@@ -257,69 +257,68 @@ export const DailyLeadsTracker: React.FC<DailyLeadsTrackerProps> = ({
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === 'Enter' && handleToggleFilter('today')}
-          className={`md:col-span-3 rounded-2xl p-4 sm:p-4.5 border transition-all cursor-pointer relative overflow-hidden select-none group ${
+          className={`col-span-1 md:col-span-3 rounded-2xl p-2.5 sm:p-3.5 border transition-all cursor-pointer relative overflow-hidden select-none group ${
             isTodaySelected
-              ? 'bg-emerald-50/70 border-emerald-400 ring-2 ring-emerald-500/20 shadow-sm'
-              : 'bg-gradient-to-br from-white via-white to-emerald-50/30 border-slate-200/80 hover:border-emerald-300 hover:shadow-xs shadow-[0_1px_3px_rgba(0,0,0,0.02)]'
+              ? 'bg-emerald-50/80 border-emerald-400 ring-2 ring-emerald-500/20 shadow-xs'
+              : 'bg-gradient-to-br from-white via-white to-emerald-50/20 border-slate-200/80 hover:border-emerald-300 hover:shadow-xs shadow-[0_1px_3px_rgba(0,0,0,0.02)]'
           }`}
           title="Haz clic para filtrar los leads que llegaron hoy"
         >
           {/* Header de la tarjeta */}
-          <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center justify-between gap-1 mb-1 sm:mb-1.5">
             <div className="flex items-center gap-1.5">
-              {/* Indicador de pulso verde en vivo */}
-              <span className="relative flex h-2.5 w-2.5">
+              <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
-              <span className="text-xs font-black text-emerald-950 uppercase tracking-wider">
+              <span className="text-[11px] sm:text-xs font-black text-emerald-950 uppercase tracking-wider">
                 Hoy
               </span>
-              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-1.5 py-0.5 rounded-md">
+              <span className="hidden sm:inline text-[9px] font-bold text-emerald-700 bg-emerald-100/80 px-1 py-0.2 rounded">
                 En vivo
               </span>
             </div>
 
             {isTodaySelected ? (
-              <span className="text-[11px] font-bold text-emerald-700 bg-emerald-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Filtrado
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <CheckCircle2 className="w-2.5 h-2.5" /> Filtrado
               </span>
             ) : (
-              <span className="text-[11px] text-slate-400 group-hover:text-emerald-600 transition-colors font-medium">
+              <span className="text-[10px] text-slate-400 group-hover:text-emerald-600 transition-colors font-medium">
                 Filtrar ➔
               </span>
             )}
           </div>
 
           {/* Contador principal */}
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-slate-900">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-slate-900">
               {todayCount}
             </span>
-            <span className="text-xs font-bold text-slate-500">
-              {todayCount === 1 ? 'lead nuevo' : 'leads nuevos'}
+            <span className="text-[11px] font-bold text-slate-500">
+              {todayCount === 1 ? 'lead' : 'leads'}
             </span>
           </div>
 
           {/* Subtítulo / Comparativa vs Ayer */}
-          <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
-            <span className="text-slate-500 text-[11px] font-medium">
+          <div className="mt-2 pt-1.5 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+            <span className="text-slate-500 truncate">
               vs ayer ({yesterdayCount})
             </span>
             {difference > 0 ? (
-              <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-emerald-700">
-                <ArrowUpRight className="w-3.5 h-3.5 text-emerald-600 stroke-[2.5]" />
-                +{difference} hoy
+              <span className="inline-flex items-center gap-0.5 font-bold text-emerald-700 shrink-0">
+                <ArrowUpRight className="w-3 h-3 text-emerald-600 stroke-[2.5]" />
+                +{difference}
               </span>
             ) : difference < 0 ? (
-              <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-slate-600">
-                <ArrowDownRight className="w-3.5 h-3.5 text-slate-400 stroke-[2.5]" />
-                {difference} vs ayer
+              <span className="inline-flex items-center gap-0.5 font-bold text-slate-600 shrink-0">
+                <ArrowDownRight className="w-3 h-3 text-slate-400 stroke-[2.5]" />
+                {difference}
               </span>
             ) : (
-              <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-slate-500">
+              <span className="inline-flex items-center gap-0.5 font-bold text-slate-400 shrink-0">
                 <Minus className="w-3 h-3 text-slate-400" />
-                Igual que ayer
+                =
               </span>
             )}
           </div>
@@ -331,68 +330,68 @@ export const DailyLeadsTracker: React.FC<DailyLeadsTrackerProps> = ({
           role="button"
           tabIndex={0}
           onKeyDown={(e) => e.key === 'Enter' && handleToggleFilter('yesterday')}
-          className={`md:col-span-3 rounded-2xl p-4 sm:p-4.5 border transition-all cursor-pointer relative overflow-hidden select-none group ${
+          className={`col-span-1 md:col-span-3 rounded-2xl p-2.5 sm:p-3.5 border transition-all cursor-pointer relative overflow-hidden select-none group ${
             isYesterdaySelected
-              ? 'bg-blue-50/70 border-blue-400 ring-2 ring-blue-500/20 shadow-sm'
+              ? 'bg-blue-50/80 border-blue-400 ring-2 ring-blue-500/20 shadow-xs'
               : 'bg-white border-slate-200/80 hover:border-blue-300 hover:shadow-xs shadow-[0_1px_3px_rgba(0,0,0,0.02)]'
           }`}
           title="Haz clic para filtrar los leads con los que cerró el día de ayer"
         >
           {/* Header de la tarjeta */}
-          <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="flex items-center justify-between gap-1 mb-1 sm:mb-1.5">
             <div className="flex items-center gap-1.5 text-slate-700">
-              <Clock className="w-3.5 h-3.5 text-blue-600" />
-              <span className="text-xs font-black text-slate-800 uppercase tracking-wider">
+              <Clock className="w-3 h-3 text-blue-600" />
+              <span className="text-[11px] sm:text-xs font-black text-slate-800 uppercase tracking-wider">
                 Ayer
               </span>
-              <span className="text-[10px] font-bold text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md">
+              <span className="hidden sm:inline text-[9px] font-bold text-slate-600 bg-slate-100 px-1 py-0.2 rounded">
                 Cierre
               </span>
             </div>
 
             {isYesterdaySelected ? (
-              <span className="text-[11px] font-bold text-blue-700 bg-blue-200/60 px-2 py-0.5 rounded-full flex items-center gap-1">
-                <CheckCircle2 className="w-3 h-3" /> Filtrado
+              <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <CheckCircle2 className="w-2.5 h-2.5" /> Filtrado
               </span>
             ) : (
-              <span className="text-[11px] text-slate-400 group-hover:text-blue-600 transition-colors font-medium">
+              <span className="text-[10px] text-slate-400 group-hover:text-blue-600 transition-colors font-medium">
                 Filtrar ➔
               </span>
             )}
           </div>
 
           {/* Contador principal */}
-          <div className="flex items-baseline gap-2">
-            <span className="text-3xl sm:text-4xl font-black font-mono tracking-tight text-slate-800">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-2xl sm:text-3xl font-black font-mono tracking-tight text-slate-800">
               {yesterdayCount}
             </span>
-            <span className="text-xs font-bold text-slate-500">
-              {yesterdayCount === 1 ? 'lead recibido' : 'leads recibidos'}
+            <span className="text-[11px] font-bold text-slate-500">
+              {yesterdayCount === 1 ? 'lead' : 'leads'}
             </span>
           </div>
 
           {/* Subtítulo informativo */}
-          <div className="mt-2.5 pt-2 border-t border-slate-200/60 flex items-center justify-between text-xs">
-            <span className="text-slate-500 text-[11px] font-medium">
-              Cierre final del día
+          <div className="mt-2 pt-1.5 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
+            <span className="text-slate-500 truncate">
+              Cierre
             </span>
-            <span className="text-[11px] font-bold text-slate-600">
+            <span className="font-bold text-slate-600 shrink-0">
               {yesterdayDate.toLocaleDateString('es-EC', { day: 'numeric', month: 'short' })}
             </span>
           </div>
         </div>
 
-        {/* ─── TARJETA 3: RITMO SEMANAL (Días de la semana con conteo diario y navegación) ─── */}
-        <div className="md:col-span-6 bg-white rounded-2xl p-4 border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between gap-2.5">
+        {/* ─── TARJETA 3: RITMO SEMANAL (Días de la semana con conteo diario y navegación integrada) ─── */}
+        <div className="col-span-2 md:col-span-6 bg-white rounded-2xl p-2.5 sm:p-3.5 border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02)] flex flex-col justify-between gap-2">
           
           {/* Header: Título + Badge total */}
-          <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
-            <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center justify-between gap-2 pb-1.5 border-b border-slate-100">
+            <div className="flex items-center gap-1.5 min-w-0">
               <Calendar className="w-3.5 h-3.5 text-violet-600 shrink-0" />
               <span className="text-xs font-bold text-slate-900 tracking-tight">
                 Ritmo Semanal
               </span>
-              <span className="text-[11px] text-slate-500 font-medium hidden sm:inline truncate">
+              <span className="text-[11px] text-slate-400 font-medium hidden sm:inline truncate">
                 ({weekData.monday.getDate()} {weekData.monday.toLocaleDateString('es-EC', { month: 'short' })} - {weekData.sunday.getDate()} {weekData.sunday.toLocaleDateString('es-EC', { month: 'short' })})
               </span>
             </div>
@@ -400,7 +399,7 @@ export const DailyLeadsTracker: React.FC<DailyLeadsTrackerProps> = ({
             <button
               type="button"
               onClick={handleToggleWeek}
-              className={`text-[11px] font-mono font-bold px-2.5 py-1 rounded-full transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${
+              className={`text-[11px] font-mono font-bold px-2 py-0.5 rounded-full transition-all flex items-center gap-1 cursor-pointer border shrink-0 ${
                 weekData.isWeekSelected
                   ? 'bg-violet-600 text-white border-violet-700 shadow-xs ring-2 ring-violet-500/20'
                   : 'bg-violet-50 hover:bg-violet-100 text-violet-700 border-violet-200/60'
@@ -412,54 +411,23 @@ export const DailyLeadsTracker: React.FC<DailyLeadsTrackerProps> = ({
             </button>
           </div>
 
-          {/* Controles de navegación: Flechas + Select full-width en móvil */}
-          <div className="flex flex-col gap-2">
-            {/* Fila: Navegación rápida */}
-            <div className="flex items-center gap-1.5">
-              {/* Flecha izquierda */}
-              <button
-                type="button"
-                onClick={() => handleSelectWeekOffset(weekOffset - 1)}
-                className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 rounded-lg text-slate-600 hover:bg-violet-50 hover:text-violet-700 border border-slate-200/80 transition-all active:scale-95"
-                title="Semana anterior"
-              >
-                <ChevronLeft className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
-                <span className="hidden sm:inline text-[11px] font-bold ml-0.5">Anterior</span>
-              </button>
+          {/* Controles de navegación integrados en una sola fila */}
+          <div className="flex items-center gap-1.5 w-full">
+            <button
+              type="button"
+              onClick={() => handleSelectWeekOffset(weekOffset - 1)}
+              className="h-7 w-7 sm:w-auto sm:px-2 rounded-lg text-slate-600 hover:bg-violet-50 hover:text-violet-700 border border-slate-200/80 transition-all active:scale-95 flex items-center justify-center shrink-0 cursor-pointer"
+              title="Semana anterior"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline text-[11px] font-bold ml-0.5">Ant</span>
+            </button>
 
-              {/* Botón "Actual" (solo si no estamos en semana actual) */}
-              {weekOffset !== 0 && (
-                <button
-                  type="button"
-                  onClick={() => handleSelectWeekOffset(0)}
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 transition-all active:scale-95 shadow-xs"
-                  title="Volver a la semana actual"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Actual</span>
-                </button>
-              )}
-
-              {/* Flecha derecha (solo si no estamos en semana actual) */}
-              {weekOffset < 0 && (
-                <button
-                  type="button"
-                  onClick={() => handleSelectWeekOffset(weekOffset + 1)}
-                  className="inline-flex items-center justify-center w-8 h-8 sm:w-auto sm:h-auto sm:px-2.5 sm:py-1.5 rounded-lg text-slate-600 hover:bg-violet-50 hover:text-violet-700 border border-slate-200/80 transition-all active:scale-95"
-                  title="Semana siguiente"
-                >
-                  <span className="hidden sm:inline text-[11px] font-bold mr-0.5">Siguiente</span>
-                  <ChevronRight className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.5]" />
-                </button>
-              )}
-            </div>
-
-            {/* Fila: Select full-width en móvil */}
-            <div className="relative w-full sm:w-auto">
+            <div className="relative flex-1 min-w-0">
               <select
                 value={weekOffset}
                 onChange={(e) => handleSelectWeekOffset(Number(e.target.value))}
-                className="w-full sm:w-auto text-xs font-semibold bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl px-3 py-2.5 sm:py-1.5 text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/30 focus:border-violet-400 appearance-none pr-8 transition-all"
+                className="w-full text-[11px] sm:text-xs font-semibold bg-slate-50 hover:bg-slate-100/80 border border-slate-200 rounded-lg px-2.5 py-1 text-slate-700 cursor-pointer focus:outline-none focus:ring-2 focus:ring-violet-500/20 focus:border-violet-400 appearance-none pr-6 transition-all truncate"
                 title="Seleccionar semana a analizar"
               >
                 {availableWeeks.map((w) => (
@@ -468,14 +436,38 @@ export const DailyLeadsTracker: React.FC<DailyLeadsTrackerProps> = ({
                   </option>
                 ))}
               </select>
-              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400">
-                <ChevronDown className="w-4 h-4" />
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2 text-slate-400">
+                <ChevronDown className="w-3.5 h-3.5" />
               </div>
             </div>
+
+            {weekOffset !== 0 && (
+              <button
+                type="button"
+                onClick={() => handleSelectWeekOffset(0)}
+                className="h-7 px-2 rounded-lg text-[10px] font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300 transition-all active:scale-95 shrink-0 flex items-center gap-1 cursor-pointer"
+                title="Volver a la semana actual"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span className="hidden sm:inline">Actual</span>
+              </button>
+            )}
+
+            {weekOffset < 0 && (
+              <button
+                type="button"
+                onClick={() => handleSelectWeekOffset(weekOffset + 1)}
+                className="h-7 w-7 sm:w-auto sm:px-2 rounded-lg text-slate-600 hover:bg-violet-50 hover:text-violet-700 border border-slate-200/80 transition-all active:scale-95 flex items-center justify-center shrink-0 cursor-pointer"
+                title="Semana siguiente"
+              >
+                <span className="hidden sm:inline text-[11px] font-bold mr-0.5">Sig</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          {/* Tira interactiva de los 7 días de la semana */}
-          <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+          {/* Tira interactiva uniforme de los 7 días */}
+          <div className="grid grid-cols-7 gap-1 sm:gap-1.5">
             {weekData.days.map((day) => {
               const isSelected = day.isSelected;
               
@@ -485,16 +477,16 @@ export const DailyLeadsTracker: React.FC<DailyLeadsTrackerProps> = ({
                   type="button"
                   onClick={() => !day.isFuture && handleToggleDay(day.key)}
                   disabled={day.isFuture}
-                  className={`flex flex-col items-center justify-between py-2 px-1 rounded-xl transition-all select-none text-center ${
+                  className={`flex flex-col items-center justify-between py-1 px-0.5 rounded-xl transition-all select-none text-center relative ${
                     day.isFuture
-                      ? 'opacity-40 cursor-not-allowed bg-slate-50 border border-transparent'
+                      ? 'opacity-35 cursor-not-allowed bg-slate-50 border border-transparent'
                       : isSelected
-                      ? 'bg-slate-900 text-white shadow-xs ring-2 ring-slate-900/10 scale-[1.02]'
+                      ? 'bg-slate-900 text-white shadow-xs ring-2 ring-violet-500/30'
                       : day.isToday
                       ? 'bg-emerald-50/90 text-emerald-950 border border-emerald-300 hover:bg-emerald-100/80 cursor-pointer'
                       : day.isYesterday
                       ? 'bg-blue-50/60 text-blue-950 border border-blue-200 hover:bg-blue-100/60 cursor-pointer'
-                      : 'bg-slate-50/80 hover:bg-slate-100/90 text-slate-700 border border-slate-200/60 cursor-pointer'
+                      : 'bg-slate-50/80 hover:bg-slate-100 text-slate-700 border border-slate-200/60 cursor-pointer'
                   }`}
                   title={
                     day.isFuture
@@ -502,64 +494,58 @@ export const DailyLeadsTracker: React.FC<DailyLeadsTrackerProps> = ({
                       : `${day.shortName} ${day.dayNum}: ${day.count} leads. Haz clic para filtrar.`
                   }
                 >
-                  {/* Nombre y número de día */}
-                  <span className={`text-[10px] font-bold uppercase tracking-wider ${
-                    isSelected 
-                      ? 'text-slate-300' 
-                      : day.isToday 
-                      ? 'text-emerald-700' 
-                      : 'text-slate-500'
-                  }`}>
-                    {day.shortName}
-                  </span>
+                  {/* Etiqueta / Nombre de día */}
+                  <div className="flex items-center justify-center h-3 w-full">
+                    {day.isToday ? (
+                      <span className={`text-[8px] font-black uppercase tracking-tighter px-1 rounded ${
+                        isSelected ? 'bg-emerald-500 text-white' : 'text-emerald-700 bg-emerald-100/80'
+                      }`}>
+                        Hoy
+                      </span>
+                    ) : day.isYesterday ? (
+                      <span className={`text-[8px] font-bold uppercase tracking-tighter px-1 rounded ${
+                        isSelected ? 'bg-blue-500 text-white' : 'text-blue-700 bg-blue-100/80'
+                      }`}>
+                        Ayer
+                      </span>
+                    ) : (
+                      <span className={`text-[9px] font-bold uppercase tracking-wider ${
+                        isSelected ? 'text-slate-300' : 'text-slate-400'
+                      }`}>
+                        {day.shortName}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Número de día */}
                   <span className={`text-xs font-black my-0.5 ${
                     isSelected ? 'text-white' : 'text-slate-800'
                   }`}>
                     {day.dayNum}
                   </span>
 
-                  {/* Conteo de leads del día */}
-                  <div className="mt-1 w-full flex items-center justify-center">
+                  {/* Conteo de leads */}
+                  <div className="w-full flex items-center justify-center">
                     {day.isFuture ? (
-                      <span className="text-[10px] text-slate-400 font-mono">-</span>
+                      <span className="text-[10px] text-slate-300 font-mono">-</span>
                     ) : (
-                      <span className={`text-xs font-mono font-black px-1.5 py-0.5 rounded-md min-w-[20px] ${
+                      <span className={`text-[10px] font-mono font-bold px-1 rounded ${
                         isSelected
-                          ? 'bg-white text-slate-900'
+                          ? 'bg-white/20 text-white'
                           : day.isToday
                           ? 'bg-emerald-600 text-white'
                           : day.count > 0
-                          ? 'bg-slate-200/80 text-slate-800 font-bold'
+                          ? 'bg-slate-200/80 text-slate-800'
                           : 'text-slate-400 font-normal'
                       }`}>
                         {day.count}
                       </span>
                     )}
                   </div>
-
-                  {/* Badge Hoy / Ayer */}
-                  {day.isToday && (
-                    <span className={`text-[9px] font-extrabold mt-1 tracking-tighter ${
-                      isSelected ? 'text-emerald-300' : 'text-emerald-700'
-                    }`}>
-                      HOY
-                    </span>
-                  )}
-                  {day.isYesterday && !day.isToday && (
-                    <span className={`text-[9px] font-bold mt-1 tracking-tighter ${
-                      isSelected ? 'text-blue-300' : 'text-blue-600'
-                    }`}>
-                      AYER
-                    </span>
-                  )}
-                  {!day.isToday && !day.isYesterday && !day.isFuture && (
-                    <span className="text-[9px] text-transparent mt-1 leading-none">.</span>
-                  )}
                 </button>
               );
             })}
           </div>
-
         </div>
 
       </div>

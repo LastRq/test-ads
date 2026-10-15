@@ -9,7 +9,6 @@ import {
   MousePointerClick, 
   Flame, 
   Target,
-  Clock,
   MapPin,
   Activity,
   TrendingUp,
@@ -26,6 +25,7 @@ import { Lead, MetaLiveTelemetry } from '../types';
 
 interface MetaAdsIntelligenceProps {
   leads: Lead[];
+  activeTenantId?: string;
 }
 
 const InstagramIcon: React.FC<{ className?: string }> = ({ className = 'w-5 h-5' }) => (
@@ -48,30 +48,28 @@ const DEFAULT_LIVE_TELEMETRY: MetaLiveTelemetry = {
   lastSync: new Date().toISOString(),
   adAccountId: '4362799907368161',
   campaign: {
-    id: '120246770184380741',
-    name: 'capi Clientes Web WhatsApp - Kindev 2026',
-    spend: 155.04,
-    impressions: 32247,
-    reach: 17780,
-    frequency: 1.81,
-    clicks: 544,
-    cpc: 0.285,
-    cpm: 4.81,
-    messagingConnections: 114,
-    firstReplies: 104,
-    depth2Replies: 66,
-    depth5Replies: 328,
-    linkClicks: 295,
-    costPerMessage: 1.36,
-    dropRatePercent: 42.1
+    id: '120247110198030741',
+    name: 'Webs Negocios - WhatsApp Filtrado - Kindev',
+    spend: 0.02,
+    impressions: 7,
+    reach: 5,
+    frequency: 1.40,
+    clicks: 0,
+    cpc: 0,
+    cpm: 2.86,
+    messagingConnections: 0,
+    firstReplies: 0,
+    depth2Replies: 0,
+    depth5Replies: 0,
+    linkClicks: 0,
+    costPerMessage: 0,
+    dropRatePercent: 0
   },
   platforms: [
-    { platform: 'facebook', spend: 100.69, impressions: 20641, clicks: 405, messages: 78, costPerMessage: 1.29, conversionRatePercent: 0.38 },
-    { platform: 'instagram', spend: 35.14, impressions: 5191, clicks: 96, messages: 20, costPerMessage: 1.76, conversionRatePercent: 0.39 },
-    { platform: 'whatsapp', spend: 19.15, impressions: 6406, clicks: 43, messages: 16, costPerMessage: 1.20, conversionRatePercent: 0.25 }
+    { platform: 'facebook', spend: 0.02, impressions: 7, clicks: 0, messages: 0, costPerMessage: 0, conversionRatePercent: 0 }
   ],
   activeAd: {
-    id: '120246770184360741',
+    id: '120247110198050741',
     name: 'Anuncio Pag Web 1',
     status: 'ACTIVE',
     priceAnchor: '$120 USD',
@@ -89,11 +87,45 @@ const DEFAULT_LIVE_TELEMETRY: MetaLiveTelemetry = {
 
 type SubTab = 'resumen' | 'mapa_ciudades';
 
-export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads }) => {
+export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({
+  leads,
+  activeTenantId = 'kindev'
+}) => {
+  const isKindevMaster = !activeTenantId || activeTenantId === 'kindev';
   const closedLeads = leads.filter((l) => l.status === 'cerrado');
   const totalRevenue = closedLeads.reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
+  const emptyClientTelemetry: MetaLiveTelemetry = useMemo(
+    () => ({
+      ...DEFAULT_LIVE_TELEMETRY,
+      campaign: {
+        ...DEFAULT_LIVE_TELEMETRY.campaign,
+        name: 'Campaña Meta Ads Activa',
+        spend: 0,
+        impressions: 0,
+        reach: 0,
+        frequency: 1.0,
+        clicks: 0,
+        cpc: 0,
+        cpm: 0,
+        messagingConnections: leads.length,
+        firstReplies: leads.length,
+        depth2Replies: 0,
+        depth5Replies: 0,
+        linkClicks: 0,
+        costPerMessage: 0,
+        dropRatePercent: 0
+      },
+      platforms: [
+        { platform: 'facebook', spend: 0, impressions: 0, clicks: 0, messages: 0, costPerMessage: 0, conversionRatePercent: 0 },
+        { platform: 'instagram', spend: 0, impressions: 0, clicks: 0, messages: 0, costPerMessage: 0, conversionRatePercent: 0 }
+      ]
+    }),
+    [leads.length]
+  );
+
   const [telemetry, setTelemetry] = useState<MetaLiveTelemetry>(() => {
+    if (!isKindevMaster) return emptyClientTelemetry;
     try {
       const saved = localStorage.getItem('kindev_meta_telemetry_cache');
       if (saved) return JSON.parse(saved);
@@ -105,9 +137,19 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeSubTab, setActiveSubTab] = useState<SubTab>('resumen');
   const [viewMode, setViewMode] = useState<'live' | 'simulator'>('live');
-  const [totalAdSpend, setTotalAdSpend] = useState<number>(() => telemetry.campaign.spend || 155.04);
+  const [totalAdSpend, setTotalAdSpend] = useState<number>(() =>
+    isKindevMaster ? telemetry.campaign.spend || 155.04 : 0
+  );
+
+  useEffect(() => {
+    if (!isKindevMaster) {
+      setTelemetry(emptyClientTelemetry);
+      setTotalAdSpend(0);
+    }
+  }, [isKindevMaster, emptyClientTelemetry]);
 
   const fetchLiveInsights = async (forceRefresh = false) => {
+    if (!isKindevMaster) return;
     setIsLoading(true);
     try {
       let data: MetaLiveTelemetry | null = null;
@@ -151,6 +193,7 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
 
   // 1. Escuchar telemetría en tiempo real desde Cloud Firestore (Funciona 100% en Producción, Celulares y Web)
   useEffect(() => {
+    if (!isKindevMaster) return;
     try {
       const telemetryDoc = doc(db, 'settings', 'meta_telemetry');
       const unsubscribe = onSnapshot(
@@ -184,12 +227,14 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
     } catch {
       // ignore
     }
-  }, []);
+  }, [isKindevMaster]);
 
   // 2. Consulta adicional al servidor local si está disponible
   useEffect(() => {
-    fetchLiveInsights();
-  }, []);
+    if (isKindevMaster) {
+      fetchLiveInsights();
+    }
+  }, [isKindevMaster]);
 
   const currentSpend = viewMode === 'live' ? telemetry.campaign.spend : totalAdSpend;
   const overallRoas = currentSpend > 0 ? (totalRevenue / currentSpend).toFixed(1) : '0';
@@ -465,9 +510,9 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
   }, [leads]);
 
   // Subtab config para DRY
-  const subTabs: { id: SubTab; label: string; icon: React.ReactNode; color: string }[] = [
+  const subTabs: { id: SubTab; label: string; icon: React.ReactNode; color: string; badge?: string }[] = [
     { id: 'resumen', label: 'Vista Ejecutiva', icon: <Sparkles className="w-3.5 h-3.5" />, color: 'text-indigo-500' },
-    { id: 'mapa_ciudades', label: 'Horas Doradas & Canales', icon: <Clock className="w-3.5 h-3.5" />, color: 'text-amber-500' },
+    { id: 'mapa_ciudades', label: 'Horas Doradas & Canales', icon: <Flame className="w-3.5 h-3.5" />, color: 'text-amber-500', badge: '🔥 Pico WhatsApp' },
   ];
 
   // ─── 4. EMBUDO REAL DE CONVERSIÓN BASADO EN TUS LEADS (4 Fases Oficiales) ───
@@ -577,21 +622,45 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
 
       {/* ═══ SUB-TAB NAVIGATION (Mobile Touch Friendly) ═══ */}
       <nav className="flex items-center gap-1.5 p-1 rounded-2xl bg-white/70 backdrop-blur-sm border border-slate-200/60 overflow-x-auto no-scrollbar text-xs font-bold shadow-2xs">
-        {subTabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveSubTab(tab.id)}
-            className={`px-3.5 py-2.5 rounded-xl transition-all duration-200 whitespace-nowrap flex items-center gap-1.5 shrink-0 touch-manipulation min-h-[40px] relative ${
-              activeSubTab === tab.id
-                ? 'bg-slate-900 text-white shadow-xs'
-                : 'text-slate-500 hover:text-slate-800 hover:bg-white/60'
-            }`}
-          >
-            <span className={activeSubTab === tab.id ? 'text-white' : tab.color}>{tab.icon}</span>
-            <span>{tab.label}</span>
-          </button>
-        ))}
+        {subTabs.map((tab) => {
+          const isActive = activeSubTab === tab.id;
+          const isGolden = tab.id === 'mapa_ciudades';
+
+          let tabClasses = 'px-3.5 py-2.5 rounded-xl transition-all duration-200 whitespace-nowrap flex items-center gap-1.5 shrink-0 touch-manipulation min-h-[40px] relative text-xs ';
+
+          if (isActive) {
+            if (isGolden) {
+              tabClasses += 'bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 text-white shadow-md shadow-amber-500/25 ring-2 ring-amber-400/40 font-black';
+            } else {
+              tabClasses += 'bg-slate-900 text-white shadow-xs font-bold';
+            }
+          } else {
+            if (isGolden) {
+              tabClasses += 'bg-amber-500/10 text-amber-900 hover:bg-amber-500/20 border border-amber-300/60 shadow-2xs font-extrabold';
+            } else {
+              tabClasses += 'text-slate-500 hover:text-slate-800 hover:bg-white/60 font-semibold';
+            }
+          }
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveSubTab(tab.id)}
+              className={tabClasses}
+            >
+              <span className={isActive ? 'text-white' : tab.color}>{tab.icon}</span>
+              <span>{tab.label}</span>
+              {tab.badge && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ml-1 ${
+                  isActive ? 'bg-white/25 text-white' : 'bg-amber-200/90 text-amber-950 ring-1 ring-amber-400/40'
+                }`}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -722,6 +791,46 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
                 </div>
               </div>
             )}
+          </div>
+
+          {/* ─── Spotlight Card: Horas Doradas & Mayor Receptividad ─── */}
+          <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-orange-500/5 to-amber-500/10 p-4 sm:p-5 shadow-sm animate-slide-up">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="p-2.5 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/25 shrink-0 mt-0.5">
+                  <Flame className="w-5 h-5 fill-white animate-pulse" />
+                </div>
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-black uppercase tracking-wider text-amber-900 bg-amber-200/70 px-2 py-0.5 rounded-md border border-amber-300/60">
+                      ⚡ Horas Doradas WhatsApp
+                    </span>
+                    <span className="text-[11px] font-bold text-amber-800">
+                      {peakDetails.hasData ? `Pico: ${peakDetails.dayName} · ${peakDetails.timeRange}` : 'Histórico en proceso'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-700 leading-snug">
+                    {peakDetails.hasData ? (
+                      <>Tus prospectos escriben con mayor frecuencia los <strong>{peakDetails.dayName}</strong> entre <strong>{peakDetails.timeRange}</strong> ({peakDetails.count} contactos). Responde en &lt; 3 min en este lapso para triplicar tus conversiones.</>
+                    ) : (
+                      <>Monitoreo continuo de horarios de llegada de prospectos en WhatsApp para detectar el pico de ventas.</>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSubTab('mapa_ciudades');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 active:scale-95 transition-all shrink-0 cursor-pointer touch-manipulation whitespace-nowrap"
+              >
+                <span>Ver Mapa Horario</span>
+                <ChevronRight className="w-3.5 h-3.5 stroke-[2.5]" />
+              </button>
+            </div>
           </div>
 
           {/* ─── Embudo Visual de Deserción ─── */}
@@ -952,17 +1061,57 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
       {activeSubTab === 'mapa_ciudades' && (
         <div className="space-y-4 sm:space-y-5 stagger-children">
           
+          {/* ─── 3 Mini Cards de Resumen Estratégico ─── */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
+            <div className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent border border-amber-500/20 rounded-2xl p-3.5 flex items-center gap-3 shadow-2xs">
+              <div className="p-2.5 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm shadow-amber-500/30 shrink-0">
+                <Flame className="w-4 h-4 fill-white animate-pulse" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 block">Franja Más Caliente</span>
+                <span className="text-sm font-black text-slate-900 truncate block">
+                  {peakDetails.hasData ? peakDetails.timeRange : '14:00 - 16:00'}
+                </span>
+                <span className="text-[10px] text-slate-500">{peakDetails.count > 0 ? `${peakDetails.count} contactos en pico` : 'Sincronizado'}</span>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-violet-500/10 via-violet-500/5 to-transparent border border-violet-500/20 rounded-2xl p-3.5 flex items-center gap-3 shadow-2xs">
+              <div className="p-2.5 rounded-xl bg-violet-600 text-white shadow-sm shadow-violet-500/30 shrink-0">
+                <Target className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-violet-800 block">Día Estrella</span>
+                <span className="text-sm font-black text-slate-900 truncate block">
+                  {peakDetails.hasData ? peakDetails.dayName : 'Día Central'}
+                </span>
+                <span className="text-[10px] text-slate-500">Mayor volumen de mensajes</span>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-transparent border border-emerald-500/20 rounded-2xl p-3.5 flex items-center gap-3 shadow-2xs">
+              <div className="p-2.5 rounded-xl bg-emerald-600 text-white shadow-sm shadow-emerald-500/30 shrink-0">
+                <Zap className="w-4 h-4" />
+              </div>
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 block">Ventana Dorada</span>
+                <span className="text-sm font-black text-slate-900 truncate block">&lt; 3 minutos</span>
+                <span className="text-[10px] text-slate-500">3x mayor tasa de conversión</span>
+              </div>
+            </div>
+          </div>
+
           {/* ─── Heatmap Horario Sincronizado con Ritmo Semanal ─── */}
           <div className="glass-card rounded-2xl sm:rounded-3xl border border-slate-200/60 shadow-sm p-4 sm:p-6 space-y-4 animate-slide-up">
             {/* ── Header: Título + Badge ── */}
             <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-100/80">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="p-2 rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-sm shadow-amber-500/20 shrink-0">
-                  <Clock className="w-4 h-4" />
+                <div className="p-2 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 text-white shadow-md shadow-amber-500/30 shrink-0">
+                  <Flame className="w-4 h-4 fill-white" />
                 </div>
                 <div className="min-w-0">
                   <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight leading-tight">
-                    Horas Doradas
+                    Horas Doradas — Mapa de Calor
                   </h3>
                   <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                     {weekOffset === 'all'
@@ -1098,17 +1247,29 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
                 </thead>
                 <tbody className="divide-y divide-slate-50 font-mono text-[11px]">
                   {heatMapSlots.map((slot) => (
-                    <tr key={slot.hour} className={`${slot.peak ? 'bg-amber-50/30' : ''} transition-colors`}>
-                      <td className="py-2.5 text-left font-semibold text-slate-600 font-sans text-[11px] pl-1 whitespace-nowrap">
-                        {slot.peak && <Flame className="w-3 h-3 text-amber-500 inline mr-1" />}
-                        {slot.hour}
+                    <tr 
+                      key={slot.hour} 
+                      className={`${
+                        slot.peak 
+                          ? 'bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-transparent border-l-4 border-amber-500' 
+                          : 'hover:bg-slate-50/60'
+                      } transition-colors`}
+                    >
+                      <td className="py-2.5 text-left font-semibold text-slate-700 font-sans text-[11px] pl-2 whitespace-nowrap">
+                        {slot.peak && <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500 inline mr-1 animate-pulse" />}
+                        <span className={slot.peak ? 'font-black text-amber-950' : ''}>{slot.hour}</span>
+                        {slot.peak && (
+                          <span className="text-[9px] font-black uppercase tracking-wider text-amber-800 bg-amber-200/90 px-1.5 py-0.5 rounded ml-1.5 ring-1 ring-amber-400/40">
+                            Pico
+                          </span>
+                        )}
                       </td>
                       {[slot.lun, slot.mar, slot.mie, slot.jue, slot.vie, slot.sab, slot.dom].map((val, idx) => {
                         const intensityClass = 
-                          val >= 4 ? 'bg-emerald-600 text-white font-bold shadow-sm shadow-emerald-500/30' :
-                          val >= 3 ? 'bg-emerald-500/80 text-white font-bold' :
-                          val >= 2 ? 'bg-emerald-100 text-emerald-800 font-semibold' :
-                          val === 1 ? 'bg-slate-100 text-slate-600' : 'text-slate-300';
+                          val >= 4 ? 'bg-gradient-to-br from-amber-500 via-orange-600 to-rose-600 text-white font-black shadow-md shadow-orange-500/40 ring-1 ring-amber-400' :
+                          val >= 3 ? 'bg-orange-500 text-white font-black shadow-xs shadow-orange-500/30' :
+                          val >= 2 ? 'bg-amber-300 text-amber-950 font-bold border border-amber-400/50' :
+                          val === 1 ? 'bg-amber-100/90 text-amber-900 font-semibold border border-amber-200/60' : 'text-slate-300';
 
                         return (
                           <td key={idx} className="py-2.5 px-1.5">
@@ -1124,14 +1285,14 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
                 {/* ─── Fila Resumen: Total Diario Sincronizado 1:1 con Ritmo Semanal ─── */}
                 <tfoot className="border-t-2 border-slate-200 bg-slate-50/80 font-mono text-[11px]">
                   <tr>
-                    <td className="py-2.5 text-left font-bold text-slate-800 font-sans text-[11px] pl-1 whitespace-nowrap">
+                    <td className="py-2.5 text-left font-bold text-slate-800 font-sans text-[11px] pl-2 whitespace-nowrap">
                       Total Diario
                     </td>
                     {dayTotals.map((tot, idx) => (
                       <td key={idx} className="py-2.5 px-1.5">
                         <span className={`inline-block w-7 h-7 leading-7 rounded-lg font-black transition-all ${
                           tot > 0 
-                            ? 'bg-slate-900 text-white shadow-xs' 
+                            ? 'bg-slate-900 text-amber-400 shadow-xs border border-slate-700' 
                             : 'text-slate-300 font-normal'
                         }`}>
                           {tot}
@@ -1144,11 +1305,11 @@ export const MetaAdsIntelligence: React.FC<MetaAdsIntelligenceProps> = ({ leads 
             </div>
 
             <div className="flex items-center gap-3 text-[10px] text-slate-500 pt-2 border-t border-slate-100/60 flex-wrap">
-              <span className="font-semibold text-slate-600">Intensidad:</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-slate-100 ring-1 ring-slate-200" /> 1</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-100" /> 2</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-500/80" /> 3</span>
-              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-emerald-600 shadow-sm shadow-emerald-500/30" /> 4+</span>
+              <span className="font-semibold text-slate-700">Intensidad Horas Doradas:</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-100/90 border border-amber-200/60 text-amber-900" /> 1 lead</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-amber-300 text-amber-950" /> 2 leads</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-orange-500 text-white" /> 3 leads</span>
+              <span className="inline-flex items-center gap-1"><span className="w-3 h-3 rounded bg-gradient-to-br from-amber-500 to-rose-600 ring-1 ring-amber-400" /> 4+ (Pico Dorado)</span>
             </div>
           </div>
 

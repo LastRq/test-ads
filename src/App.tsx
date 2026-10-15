@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, setDoc } from 'firebase/firestore';
-import { Search, Filter, ChevronLeft, ChevronRight } from 'lucide-react';
-import { db, cleanFirestoreData } from './lib/firebase';
+import { signOut } from 'firebase/auth';
+import { Search, Filter, ChevronLeft, ChevronRight, X, UserPlus } from 'lucide-react';
+import { db, auth, cleanFirestoreData } from './lib/firebase';
 import { 
   Lead, 
   LeadStatus, 
@@ -20,7 +21,6 @@ import { userTelemetry } from './lib/user-telemetry';
 import { SecurityGate } from './components/SecurityGate';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
-import { ClientManagerModal } from './components/ClientManagerModal';
 import { KanbanBoard } from './components/KanbanBoard';
 import { AnalyticsView } from './components/AnalyticsView';
 import { MetaAdsIntelligence } from './components/MetaAdsIntelligence';
@@ -31,9 +31,7 @@ import { LeadForm } from './components/LeadForm';
 import { LeadCard } from './components/LeadCard';
 import { SaleModal } from './components/SaleModal';
 import { LeadProfileView } from './components/LeadProfileView';
-import { ConfigModal } from './components/ConfigModal';
-import { WhatsAppStatusModal } from './components/WhatsAppStatusModal';
-import { MetaTokenModal } from './components/MetaTokenModal';
+import { ProfileSettingsView } from './components/ProfileSettingsView';
 import { BottomNav } from './components/BottomNav';
 import { Toast, ToastData } from './components/Toast';
 
@@ -46,7 +44,8 @@ const TAB_TO_HASH: Record<TabView, string> = {
   ads_intelligence: '#meta-ads',
   ltv_clients: '#ltv-clientes',
   follow_up: '#seguimiento',
-  quick_list: '#directorio'
+  quick_list: '#directorio',
+  profile: '#perfil'
 };
 
 const getTabFromHash = (hash: string): TabView => {
@@ -82,6 +81,11 @@ const getTabFromHash = (hash: string): TabView => {
     case 'registro':
     case 'leads':
       return 'quick_list';
+    case 'perfil':
+    case 'profile':
+    case 'configuracion':
+    case 'ajustes':
+      return 'profile';
     default:
       return 'kanban';
   }
@@ -101,13 +105,16 @@ export const App: React.FC = () => {
 
   const [activeTenantId, setActiveTenantIdState] = useState<string>(() => {
     if (typeof window === 'undefined') return 'kindev';
-    return sessionStorage.getItem('kindev_auth_tenant') || 'kindev';
+    const saved = sessionStorage.getItem('kindev_auth_tenant') || 'kindev';
+    if (saved === 'kindevx' || saved.startsWith('kindevx')) return 'kindev';
+    return saved;
   });
 
   const setActiveTenantId = (tId: string) => {
-    setActiveTenantIdState(tId);
+    const cleanId = tId === 'kindevx' || tId.startsWith('kindevx') ? 'kindev' : tId;
+    setActiveTenantIdState(cleanId);
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('kindev_auth_tenant', tId);
+      sessionStorage.setItem('kindev_auth_tenant', cleanId);
     }
   };
 
@@ -121,8 +128,6 @@ export const App: React.FC = () => {
       return [];
     }
   });
-
-  const [isClientManagerOpen, setIsClientManagerOpen] = useState<boolean>(false);
 
   // 2. Estado de Configuración Meta (Kindev Default)
   const [config, setConfig] = useState<MetaConfig>(() => {
@@ -142,7 +147,14 @@ export const App: React.FC = () => {
 
   // Cuenta Activa (Kindev o Cliente)
   const activeTenant = useMemo(() => {
-    if (activeTenantId === 'kindev') {
+    const isKindevMaster =
+      !activeTenantId ||
+      activeTenantId === 'kindev' ||
+      activeTenantId === 'kindevx' ||
+      activeTenantId.startsWith('kindevx') ||
+      userRole === 'superadmin';
+
+    if (isKindevMaster) {
       return {
         id: 'kindev',
         name: 'Kindev S.A.S.',
@@ -173,7 +185,7 @@ export const App: React.FC = () => {
         createdAt: new Date().toISOString()
       } as ClientAccount)
     );
-  }, [activeTenantId, clients, config]);
+  }, [activeTenantId, clients, config, userRole]);
 
   // 3. Estado de Leads & Sincronización
   const [leads, setLeads] = useState<Lead[]>(() => {
@@ -251,14 +263,18 @@ export const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState<boolean>(false);
 
-  // 5. Modales y Notificaciones
+  // 5. Diálogos, Sub-pestañas y Notificaciones
   const [saleLead, setSaleLead] = useState<Lead | null>(null);
   const [saleTargetStatus, setSaleTargetStatus] = useState<'anticipo' | 'cerrado'>('cerrado');
   const [profileLead, setProfileLead] = useState<Lead | null>(null);
-  const [isConfigOpen, setIsConfigOpen] = useState<boolean>(false);
-  const [isWsModalOpen, setIsWsModalOpen] = useState<boolean>(false);
-  const [isMetaTokenModalOpen, setIsMetaTokenModalOpen] = useState<boolean>(false);
+  const [profileSubTab, setProfileSubTab] = useState<'production' | 'whatsapp' | 'clients' | 'webhooks' | 'security'>('production');
   const [apisStatus, setApisStatus] = useState<SystemApisStatus | null>(null);
+  const [isAddLeadModalOpen, setIsAddLeadModalOpen] = useState<boolean>(false);
+
+  const handleNavigateToProfileTab = (subTab: 'production' | 'whatsapp' | 'clients' | 'webhooks' | 'security') => {
+    setProfileSubTab(subTab);
+    setActiveTab('profile');
+  };
 
   // Telemetría: Registro del tiempo de permanencia y uso por sección
   useEffect(() => {
@@ -322,14 +338,16 @@ export const App: React.FC = () => {
             };
 
             const cleanPh = (leadItem.phone || '').replace(/\D/g, '');
+            const tenantPrefix = leadItem.tenantId || 'kindev';
             if (!cleanPh) {
-              uniqueLeadsMap.set(`id_${leadItem.id}`, leadItem);
+              uniqueLeadsMap.set(`${tenantPrefix}_id_${leadItem.id}`, leadItem);
               return;
             }
 
-            const existing = uniqueLeadsMap.get(cleanPh);
+            const dedupKey = `${tenantPrefix}_${cleanPh}`;
+            const existing = uniqueLeadsMap.get(dedupKey);
             if (!existing) {
-              uniqueLeadsMap.set(cleanPh, leadItem);
+              uniqueLeadsMap.set(dedupKey, leadItem);
             } else {
               // Priorizar el estado comercial más avanzado y la información publicitaria más rica
               const statusWeights: Record<LeadStatus, number> = {
@@ -358,7 +376,7 @@ export const App: React.FC = () => {
                 combinedNotes = combinedNotes ? `${combinedNotes}\n${loser.notes}` : loser.notes;
               }
 
-              uniqueLeadsMap.set(cleanPh, {
+              uniqueLeadsMap.set(dedupKey, {
                 ...winner,
                 notes: combinedNotes,
                 createdAt: new Date(winner.createdAt).getTime() < new Date(loser.createdAt).getTime()
@@ -504,13 +522,26 @@ export const App: React.FC = () => {
     };
   }, [isUnlocked]);
 
-  // Leads pertenecientes exclusivamente al tenant activo
+  // Leads pertenecientes exclusivamente al tenant activo (o datos históricos unificados para Kindev)
   const tenantLeads = useMemo(() => {
-    if (activeTenantId === 'kindev') {
-      return leads.filter((l) => !l.tenantId || l.tenantId === 'kindev');
+    const isKindevMaster =
+      !activeTenantId ||
+      activeTenantId === 'kindev' ||
+      activeTenantId === 'kindevx' ||
+      activeTenantId.startsWith('kindevx') ||
+      userRole === 'superadmin';
+
+    if (isKindevMaster) {
+      return leads.filter(
+        (l) =>
+          !l.tenantId ||
+          l.tenantId === 'kindev' ||
+          l.tenantId === 'kindevx' ||
+          l.tenantId.startsWith('kindevx')
+      );
     }
     return leads.filter((l) => l.tenantId === activeTenantId);
-  }, [leads, activeTenantId]);
+  }, [leads, activeTenantId, userRole]);
 
   // Cálculo de KPIs / Estadísticas para el tenant activo
   const stats: DashboardStats = useMemo(() => {
@@ -562,6 +593,20 @@ export const App: React.FC = () => {
     const start = (currentPage - 1) * LEADS_PER_PAGE;
     return filteredLeads.slice(start, start + LEADS_PER_PAGE);
   }, [filteredLeads, currentPage]);
+
+  // Ventana deslizante para paginación responsiva (evita desborde con muchas páginas)
+  const visiblePages = useMemo<(number | string)[]>(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, '...', totalPages];
+    }
+    if (currentPage >= totalPages - 3) {
+      return [1, '...', totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, '...', currentPage - 1, currentPage, currentPage + 1, '...', totalPages];
+  }, [currentPage, totalPages]);
 
   // Handlers
   const handleAddLead = async (data: {
@@ -1189,12 +1234,13 @@ export const App: React.FC = () => {
   };
 
   const handleSaveClient = async (clientToSave: ClientAccount) => {
+    const cleanedClient = cleanFirestoreData(clientToSave);
     const updated = [...clients];
-    const idx = updated.findIndex((c) => c.id === clientToSave.id);
+    const idx = updated.findIndex((c) => c.id === cleanedClient.id);
     if (idx >= 0) {
-      updated[idx] = clientToSave;
+      updated[idx] = cleanedClient;
     } else {
-      updated.push(clientToSave);
+      updated.push(cleanedClient);
     }
     setClients(updated);
     try {
@@ -1204,12 +1250,10 @@ export const App: React.FC = () => {
     }
 
     try {
-      if (firestoreConnected) {
-        await setDoc(doc(db, 'settings', 'tenants_registry'), {
-          clients: updated,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      }
+      await setDoc(doc(db, 'settings', 'tenants_registry'), {
+        clients: updated.map((c) => cleanFirestoreData(c)),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
     } catch (err) {
       console.warn('Error guardando en Firestore tenants_registry:', err);
     }
@@ -1229,12 +1273,10 @@ export const App: React.FC = () => {
     }
 
     try {
-      if (firestoreConnected) {
-        await setDoc(doc(db, 'settings', 'tenants_registry'), {
-          clients: updated,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      }
+      await setDoc(doc(db, 'settings', 'tenants_registry'), {
+        clients: updated.map((c) => cleanFirestoreData(c)),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
       showToast('Cliente eliminado', 'info');
     } catch (err) {
       console.warn('Error eliminando en Firestore tenants_registry:', err);
@@ -1242,8 +1284,12 @@ export const App: React.FC = () => {
   };
 
   const handleUnlock = (role: UserRole, tenantId: string) => {
+    const finalTenant =
+      role === 'superadmin' || tenantId === 'kindevx' || tenantId.startsWith('kindevx')
+        ? 'kindev'
+        : tenantId;
     setUserRole(role);
-    setActiveTenantId(tenantId);
+    setActiveTenantId(finalTenant);
     setIsUnlocked(true);
   };
 
@@ -1251,11 +1297,18 @@ export const App: React.FC = () => {
     sessionStorage.removeItem('kindev_auth_session');
     sessionStorage.removeItem('kindev_auth_role');
     sessionStorage.removeItem('kindev_auth_tenant');
+    signOut(auth).catch(() => {});
     setIsUnlocked(false);
   };
 
   if (!isUnlocked) {
-    return <SecurityGate onUnlock={handleUnlock} clients={clients} />;
+    return (
+      <SecurityGate
+        onUnlock={handleUnlock}
+        clients={clients}
+        onRegisterClient={handleSaveClient}
+      />
+    );
   }
 
   return (
@@ -1273,12 +1326,12 @@ export const App: React.FC = () => {
         closedCount={tenantLeads.filter((l) => l.status === 'cerrado').length}
         followUpCount={tenantLeads.filter((l) => ['prospecto', 'cotizado'].includes(l.status)).length}
         firestoreConnected={firestoreConnected}
-        onOpenConfig={() => setIsConfigOpen(true)}
-        onOpenWsStatus={() => setIsWsModalOpen(true)}
+        onOpenConfig={() => handleNavigateToProfileTab('production')}
+        onOpenWsStatus={() => handleNavigateToProfileTab('whatsapp')}
         onLock={handleLock}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
-        onOpenClientManager={() => setIsClientManagerOpen(true)}
+        onOpenClientManager={() => handleNavigateToProfileTab('clients')}
         activeTenantName={activeTenant.name}
         userRole={userRole}
       />
@@ -1290,12 +1343,12 @@ export const App: React.FC = () => {
         <TopBar
           activeTab={activeTab}
           onOpenSidebar={() => setIsSidebarOpen(true)}
-          onAddNewLead={() => setActiveTab('quick_list')}
+          onAddNewLead={() => setIsAddLeadModalOpen(true)}
           config={activeTenant.metaConfig || config}
           wsStatus={wsStatus}
-          onOpenWsStatus={() => setIsWsModalOpen(true)}
+          onOpenWsStatus={() => handleNavigateToProfileTab('whatsapp')}
           apisStatus={apisStatus}
-          onOpenMetaToken={() => setIsMetaTokenModalOpen(true)}
+          onOpenMetaToken={() => handleNavigateToProfileTab('production')}
           isSidebarCollapsed={isSidebarCollapsed}
           onToggleSidebarCollapse={() => setIsSidebarCollapsed((prev) => !prev)}
           activeTenantId={activeTenantId}
@@ -1303,11 +1356,12 @@ export const App: React.FC = () => {
           userRole={userRole}
           clients={clients}
           onSelectTenant={(id) => setActiveTenantId(id)}
-          onOpenClientManager={() => setIsClientManagerOpen(true)}
+          onOpenClientManager={() => handleNavigateToProfileTab('clients')}
+          onNavigateToProfileTab={handleNavigateToProfileTab}
         />
 
         {/* Contenedor Principal Ergonómico para PC y Móvil */}
-        <main className="flex-1 w-full transition-all pb-24 lg:pb-8 px-4 sm:px-6 lg:px-8 py-5 max-w-[1600px] mx-auto space-y-5">
+        <main className="flex-1 w-full transition-all pb-24 lg:pb-8 px-3.5 sm:px-6 lg:px-8 py-3.5 sm:py-5 max-w-[1600px] mx-auto space-y-4 sm:space-y-5">
           
           {/* Banner informativo de modo prueba si está activo */}
           {Boolean(activeTenant.metaConfig?.testMode ?? config.testMode) && (
@@ -1323,8 +1377,8 @@ export const App: React.FC = () => {
                 </span>
               </div>
               <button
-                onClick={() => setIsConfigOpen(true)}
-                className="font-bold underline hover:text-amber-700 shrink-0 text-xs"
+                onClick={() => handleNavigateToProfileTab('production')}
+                className="font-bold underline hover:text-amber-700 shrink-0 text-xs cursor-pointer"
               >
                 Cambiar
               </button>
@@ -1359,7 +1413,7 @@ export const App: React.FC = () => {
               setSaleLead(lead);
               setSaleTargetStatus(targetStatus);
             }}
-            onAddNewLead={() => setActiveTab('quick_list')}
+            onAddNewLead={() => setIsAddLeadModalOpen(true)}
             onUpdateName={handleUpdateLeadName}
             onOpenLeadProfile={(lead) => setProfileLead(lead)}
             isSidebarCollapsed={isSidebarCollapsed}
@@ -1374,7 +1428,7 @@ export const App: React.FC = () => {
 
         {/* 3. Módulo: Inteligencia Meta Ads */}
         {activeTab === 'ads_intelligence' && (
-          <MetaAdsIntelligence leads={tenantLeads} />
+          <MetaAdsIntelligence leads={tenantLeads} activeTenantId={activeTenantId} />
         )}
 
         {/* 4. Módulo: Clientes & LTV */}
@@ -1501,15 +1555,42 @@ export const App: React.FC = () => {
                     ))}
                   </div>
 
-                  {/* Barra de Navegación Horizontal (Paginador) */}
+                  {/* Barra de Navegación Horizontal (Paginador Ergonómico y Responsivo) */}
                   {totalPages > 1 && (
                     <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-3.5 rounded-2xl border border-slate-200/90 shadow-sm mt-2">
-                      <div className="text-xs text-slate-500 font-medium">
+                      <div className="text-xs text-slate-500 font-medium text-center sm:text-left w-full sm:w-auto">
                         Mostrando <span className="font-bold text-slate-800">{(currentPage - 1) * LEADS_PER_PAGE + 1}</span> a{' '}
                         <span className="font-bold text-slate-800">{Math.min(currentPage * LEADS_PER_PAGE, filteredLeads.length)}</span> de{' '}
                         <span className="font-bold text-slate-800">{filteredLeads.length}</span> clientes
                       </div>
-                      <div className="flex items-center gap-1.5">
+
+                      {/* Vista Móvil: Controles táctiles compactos (cero desbordamiento) */}
+                      <div className="flex sm:hidden items-center justify-between w-full pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                          disabled={currentPage === 1}
+                          className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 text-xs font-bold text-slate-700 transition-all flex items-center gap-1 shadow-sm active:scale-95"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                          <span>Anterior</span>
+                        </button>
+                        <div className="text-xs font-bold text-slate-700 bg-slate-100/90 px-3 py-1.5 rounded-xl border border-slate-200/60 shadow-xs">
+                          Pág. <span className="text-violet-600">{currentPage}</span> / {totalPages}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 text-xs font-bold text-slate-700 transition-all flex items-center gap-1 shadow-sm active:scale-95"
+                        >
+                          <span>Siguiente</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Vista Escritorio / Tablet: Ventana deslizante de números */}
+                      <div className="hidden sm:flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
@@ -1520,45 +1601,77 @@ export const App: React.FC = () => {
                           <span>Anterior</span>
                         </button>
                         <div className="flex items-center gap-1">
-                          {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                            <button
-                              key={page}
-                              type="button"
-                              onClick={() => setCurrentPage(page)}
-                              className={`w-8 h-8 rounded-xl text-xs font-bold transition-all ${
-                                currentPage === page
-                                ? 'bg-violet-600 text-white shadow-md shadow-violet-600/20'
-                                : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
-                            }`}
-                          >
-                            {page}
-                          </button>
-                        ))}
+                          {visiblePages.map((page, idx) =>
+                            typeof page === 'number' ? (
+                              <button
+                                key={page}
+                                type="button"
+                                onClick={() => setCurrentPage(page)}
+                                className={`w-8 h-8 rounded-xl text-xs font-bold transition-all ${
+                                  currentPage === page
+                                    ? 'bg-violet-600 text-white shadow-md shadow-violet-600/20'
+                                    : 'bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200'
+                                }`}
+                              >
+                                {page}
+                              </button>
+                            ) : (
+                              <span
+                                key={`ellipsis-${idx}`}
+                                className="w-6 text-center text-xs font-bold text-slate-400 select-none"
+                              >
+                                …
+                              </span>
+                            )
+                          )}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                          disabled={currentPage === totalPages}
+                          className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 text-xs font-bold text-slate-700 transition-all flex items-center gap-1 shadow-sm active:scale-95"
+                        >
+                          <span>Siguiente</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                        className="px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed border border-slate-200 text-xs font-bold text-slate-700 transition-all flex items-center gap-1 shadow-sm active:scale-95"
-                      >
-                        <span>Siguiente</span>
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
                     </div>
-                  </div>
-                )}
+                  )}
               </>
             )}
           </section>
         </div>
+      )}
+
+      {/* 7. Módulo: Perfil & Configuración del Sistema (100% In-Page, Cero Ventanas Emergentes) */}
+      {activeTab === 'profile' && (
+        <ProfileSettingsView
+          config={activeTenant?.metaConfig || config}
+          onSaveConfig={handleSaveConfig}
+          wsStatus={wsStatus}
+          apisStatus={apisStatus}
+          onLock={handleLock}
+          onShowToast={showToast}
+          userRole={userRole}
+          activeTenantName={activeTenant?.name || 'Kindev S.A.S.'}
+          totalLeadsCount={tenantLeads.length}
+          firestoreConnected={firestoreConnected}
+          clients={clients}
+          activeTenantId={activeTenantId}
+          onSelectTenant={(id) => setActiveTenantId(id)}
+          onSaveClient={handleSaveClient}
+          onDeleteClient={handleDeleteClient}
+          onRefreshWhatsApp={refreshWhatsAppStatus}
+          initialTab={profileSubTab}
+        />
       )}
             </>
           )}
 
         </main>
 
-        {/* Footer Empresarial Luminous */}
-        <footer className="border-t border-slate-200/80 bg-white py-3.5 px-4 sm:px-6 lg:px-8 mt-auto mb-14 lg:mb-0">
+        {/* Footer Empresarial Luminous (Oculto en móvil para ergonomía de app nativa) */}
+        <footer className="hidden sm:block border-t border-slate-200/80 bg-white py-3.5 px-4 sm:px-6 lg:px-8 mt-auto">
           <div className="max-w-[1600px] mx-auto w-full flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
             <div className="flex items-center gap-2">
               <img src="/logo.png" alt="Kindev Logo" className="h-4 w-auto object-contain opacity-70" />
@@ -1583,18 +1696,6 @@ export const App: React.FC = () => {
         followUpCount={tenantLeads.filter((l) => ['prospecto', 'cotizado'].includes(l.status)).length}
       />
 
-      {/* Modal de Gestión Multi-Cliente */}
-      <ClientManagerModal
-        isOpen={isClientManagerOpen}
-        onClose={() => setIsClientManagerOpen(false)}
-        clients={clients}
-        activeTenantId={activeTenantId}
-        onSelectTenant={(id) => setActiveTenantId(id)}
-        onSaveClient={handleSaveClient}
-        onDeleteClient={handleDeleteClient}
-        onShowToast={showToast}
-      />
-
       {/* Modal de Cierre de Venta / Anticipo */}
       <SaleModal
         lead={saleLead}
@@ -1603,35 +1704,39 @@ export const App: React.FC = () => {
         onConfirmSale={handleConfirmSale}
       />
 
-
-      {/* Modal de Configuración y Seguridad */}
-      <ConfigModal
-        isOpen={isConfigOpen}
-        config={activeTenant.metaConfig || config}
-        onClose={() => setIsConfigOpen(false)}
-        onSaveConfig={handleSaveConfig}
-        onShowToast={showToast}
-      />
-
-      {/* Modal de Estado de WhatsApp */}
-      <WhatsAppStatusModal
-        isOpen={isWsModalOpen}
-        status={wsStatus}
-        onClose={() => setIsWsModalOpen(false)}
-        onRefresh={refreshWhatsAppStatus}
-        onShowToast={showToast}
-      />
-
-      {/* Modal de Conexión y Actualización de Meta Token */}
-      <MetaTokenModal
-        isOpen={isMetaTokenModalOpen}
-        onClose={() => setIsMetaTokenModalOpen(false)}
-        onTokenUpdated={() => {
-          refreshApisStatus();
-        }}
-        apisStatus={apisStatus}
-        onShowToast={showToast}
-      />
+      {/* Modal de Registro Rápido de Contacto (Cero Desvío de Pantalla) */}
+      {isAddLeadModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-fadeIn">
+          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-scaleIn">
+            <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-slate-100 bg-slate-50/70">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-violet-600 text-white flex items-center justify-center shadow-xs">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-sm text-slate-900 tracking-tight">Registrar Nuevo Contacto</h3>
+                  <p className="text-[11px] text-slate-500">Ingreso directo a tu Pipeline Kanban</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsAddLeadModalOpen(false)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 sm:p-5 max-h-[85vh] overflow-y-auto">
+              <LeadForm 
+                onAddLead={async (data) => {
+                  await handleAddLead(data);
+                  setIsAddLeadModalOpen(false);
+                }} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Notificaciones Toast */}
       <Toast toast={toast} onClose={() => setToast(null)} />

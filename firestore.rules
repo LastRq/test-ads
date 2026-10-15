@@ -23,7 +23,8 @@ service cloud.firestore {
       allow read: if true;
       allow write: if (docId == 'meta_config' && request.resource.data.testMode is bool)
                    || docId == 'whatsapp_status'
-                   || docId == 'tenants_registry';
+                   || docId == 'tenants_registry'
+                   || docId == 'meta_telemetry';
     }
 
     // Bloqueo total por defecto para cualquier otra colección

@@ -15,7 +15,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const AUTH_DIR = path.join(__dirname, 'auth_baileys');
 const FIRESTORE_REST_URL = 'https://firestore.googleapis.com/v1/projects/kindevmetaads/databases/(default)/documents/leads';
-const FIRESTORE_STATUS_URL = 'https://firestore.googleapis.com/v1/projects/kindevmetaads/databases/(default)/documents/settings/whatsapp_status';
+const FIRESTORE_STATUS_URL = process.env.TENANT_ID && process.env.TENANT_ID !== 'kindev'
+  ? `https://firestore.googleapis.com/v1/projects/kindevmetaads/databases/(default)/documents/settings/whatsapp_status_${process.env.TENANT_ID}`
+  : 'https://firestore.googleapis.com/v1/projects/kindevmetaads/databases/(default)/documents/settings/whatsapp_status';
 const FIRESTORE_TELEMETRY_URL = 'https://firestore.googleapis.com/v1/projects/kindevmetaads/databases/(default)/documents/settings/meta_telemetry';
 
 // Cargar credenciales dinámicamente para Meta Conversions API (CAPI) Business Messaging
@@ -437,7 +439,7 @@ syncFirestoreExistingLeadsCache();
 setInterval(syncFirestoreExistingLeadsCache, 6 * 60 * 60 * 1000);
 
 // Helper unificado para guardar leads en Cloud Firestore con PROTECCIÓN TOTAL DE DUPLICADOS
-async function saveLeadToFirestore({ name, phone, displayPhone, service, notes, source, tenantId = 'kindev', eventId }) {
+async function saveLeadToFirestore({ name, phone, displayPhone, service, notes, source, tenantId = process.env.TENANT_ID || 'kindev', eventId }) {
   const cleanPh = cleanPhone(phone);
   if (!cleanPh) return false;
 

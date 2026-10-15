@@ -120,6 +120,10 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
     setMetaToken(config.accessToken || getStoredMetaToken());
   }, [config]);
 
+  const currentClient = clients?.find(c => c.id === activeTenantId);
+  const activeTenantPhone = currentClient?.phone || (activeTenantId === 'kindev' || !activeTenantId ? '593991952889' : '');
+  const displayUserPhone = wsStatus.user || (activeTenantPhone ? (activeTenantPhone.startsWith('593') ? activeTenantPhone : `593${activeTenantPhone.replace(/^0+/, '')}`) : '');
+
   const isWsConnected = wsStatus.isListening && wsStatus.status === 'connected';
 
   const copyToClipboard = (text: string, keyName: string) => {
@@ -366,7 +370,7 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
             <div className="min-w-0">
               <span className="block text-[10px] text-slate-400 font-medium">WhatsApp Bot</span>
               <span className="font-bold text-white truncate block">
-                {isWsConnected ? `+${wsStatus.user || '593991952889'}` : 'Desconectado'}
+                {isWsConnected ? `+${displayUserPhone}` : 'Desconectado'}
               </span>
             </div>
           </div>
@@ -743,8 +747,10 @@ export const ProfileSettingsView: React.FC<ProfileSettingsViewProps> = ({
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-slate-500">Número Conectado:</span>
                   <span className="font-mono font-bold text-slate-900 flex items-center gap-1.5">
-                    +{wsStatus.user || '593991952889'}
-                    <CopyPhoneButton phone={wsStatus.user || '593991952889'} className="p-1 text-slate-400 hover:text-slate-700" />
+                    {displayUserPhone ? `+${displayUserPhone}` : 'No configurado'}
+                    {displayUserPhone && (
+                      <CopyPhoneButton phone={displayUserPhone} className="p-1 text-slate-400 hover:text-slate-700" />
+                    )}
                   </span>
                 </div>
 

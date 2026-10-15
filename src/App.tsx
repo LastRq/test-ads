@@ -151,8 +151,7 @@ export const App: React.FC = () => {
       !activeTenantId ||
       activeTenantId === 'kindev' ||
       activeTenantId === 'kindevx' ||
-      activeTenantId.startsWith('kindevx') ||
-      userRole === 'superadmin';
+      activeTenantId.startsWith('kindevx');
 
     if (isKindevMaster) {
       return {
@@ -476,8 +475,24 @@ export const App: React.FC = () => {
   useEffect(() => {
     if (!isUnlocked) return;
 
-    // 1. Escucha en tiempo real vía Cloud Firestore (Funciona en tu PC o en tu celular)
-    const statusDoc = doc(db, 'settings', 'whatsapp_status');
+    // Reset de estado al conmutar entre cuentas
+    setWsStatus({
+      status: 'disconnected',
+      isListening: false,
+      user: '',
+      updatedAt: undefined
+    });
+
+    const isKindev =
+      !activeTenantId ||
+      activeTenantId === 'kindev' ||
+      activeTenantId === 'kindevx' ||
+      activeTenantId.startsWith('kindevx');
+
+    const statusDocId = isKindev ? 'whatsapp_status' : `whatsapp_status_${activeTenantId}`;
+
+    // 1. Escucha en tiempo real vía Cloud Firestore del tenant activo
+    const statusDoc = doc(db, 'settings', statusDocId);
     const unsubscribe = onSnapshot(
       statusDoc,
       (snap) => {
@@ -495,6 +510,13 @@ export const App: React.FC = () => {
             note: data.note || '',
             updatedAt: data.updatedAt
           });
+        } else {
+          setWsStatus({
+            status: 'disconnected',
+            isListening: false,
+            user: '',
+            updatedAt: undefined
+          });
         }
       },
       (err) => {
@@ -502,12 +524,12 @@ export const App: React.FC = () => {
       }
     );
 
-    // 2. Consulta al localhost SOLO si el navegador está en la máquina local (evita errores en celulares)
+    // 2. Consulta al localhost SOLO para Kindev en entorno local
     const isLocalEnvironment = typeof window !== 'undefined' && 
       (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
     let interval: NodeJS.Timeout | undefined;
-    if (isLocalEnvironment) {
+    if (isLocalEnvironment && isKindev) {
       refreshWhatsAppStatus();
       refreshApisStatus();
       interval = setInterval(() => {
@@ -520,7 +542,7 @@ export const App: React.FC = () => {
       unsubscribe();
       if (interval) clearInterval(interval);
     };
-  }, [isUnlocked]);
+  }, [isUnlocked, activeTenantId]);
 
   // Leads pertenecientes exclusivamente al tenant activo (o datos históricos unificados para Kindev)
   const tenantLeads = useMemo(() => {
@@ -528,8 +550,7 @@ export const App: React.FC = () => {
       !activeTenantId ||
       activeTenantId === 'kindev' ||
       activeTenantId === 'kindevx' ||
-      activeTenantId.startsWith('kindevx') ||
-      userRole === 'superadmin';
+      activeTenantId.startsWith('kindevx');
 
     if (isKindevMaster) {
       return leads.filter(
@@ -541,7 +562,7 @@ export const App: React.FC = () => {
       );
     }
     return leads.filter((l) => l.tenantId === activeTenantId);
-  }, [leads, activeTenantId, userRole]);
+  }, [leads, activeTenantId]);
 
   // Cálculo de KPIs / Estadísticas para el tenant activo
   const stats: DashboardStats = useMemo(() => {

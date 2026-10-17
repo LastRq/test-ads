@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { X, CheckCircle2, Send, Loader2, Sparkles, Plus, Minus } from 'lucide-react';
+import { X, CheckCircle2, Send, Loader2, Sparkles, Plus, Minus, BookOpen, ChevronDown, ChevronUp, Tag } from 'lucide-react';
 import { Lead } from '../types';
-import { KINDEV_PRESETS } from '../lib/presets';
+import { 
+  getPresetsForTenant, 
+  isMirandaAccount, 
+  MIRANDA_FULL_CATALOG, 
+  DentalCatalogItem 
+} from '../lib/presets';
 import { CopyPhoneButton } from './CopyPhoneButton';
 
 interface SaleModalProps {
   lead: Lead | null;
   targetStatus?: 'anticipo' | 'cerrado';
+  tenantId?: string;
+  tenantName?: string;
   onClose: () => void;
   onConfirmSale: (
     leadId: string,
@@ -17,27 +24,51 @@ interface SaleModalProps {
   ) => Promise<void>;
 }
 
-export const SaleModal: React.FC<SaleModalProps> = ({ lead, targetStatus = 'cerrado', onClose, onConfirmSale }) => {
-  const [amount, setAmount] = useState<number>(120);
-  const [customInput, setCustomInput] = useState<string>('120.00');
+export const SaleModal: React.FC<SaleModalProps> = ({ 
+  lead, 
+  targetStatus = 'cerrado', 
+  tenantId,
+  tenantName,
+  onClose, 
+  onConfirmSale 
+}) => {
+  const isMiranda = isMirandaAccount(lead?.tenantId || tenantId, tenantName);
+  const presets = getPresetsForTenant(lead?.tenantId || tenantId, tenantName);
+  const defaultPrice = isMiranda ? 50 : 120;
+
+  const [amount, setAmount] = useState<number>(defaultPrice);
+  const [customInput, setCustomInput] = useState<string>(defaultPrice.toFixed(2));
   const [note, setNote] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [dispatchToCapi, setDispatchToCapi] = useState<boolean>(true);
+  const [showFullCatalog, setShowFullCatalog] = useState<boolean>(false);
 
   useEffect(() => {
     if (lead) {
-      const initial = lead.amount && lead.amount > 0 ? lead.amount : 120;
+      const def = isMiranda ? 50 : 120;
+      const initial = lead.amount && lead.amount > 0 ? lead.amount : def;
       setAmount(initial);
       setCustomInput(initial.toFixed(2));
-      setNote(lead.notes || '');
+      const initialNote = lead.notes || (isMiranda && (!lead.amount || lead.amount === 50) ? 'Promoción Campaña ($50)' : '');
+      setNote(initialNote);
     }
-  }, [lead]);
+  }, [lead, isMiranda]);
 
   if (!lead) return null;
 
-  const handleSelectPreset = (presetAmount: number) => {
+  const handleSelectPreset = (presetAmount: number, presetLabel?: string) => {
     setAmount(presetAmount);
     setCustomInput(presetAmount.toFixed(2));
+    if (presetLabel && !note) {
+      setNote(presetLabel);
+    }
+  };
+
+  const handleSelectCatalogItem = (item: DentalCatalogItem) => {
+    setAmount(item.price);
+    setCustomInput(item.price.toFixed(2));
+    setNote(`${item.name} ($${item.price})`);
+    setShowFullCatalog(false);
   };
 
   const handleCustomChange = (val: string) => {
@@ -171,27 +202,46 @@ export const SaleModal: React.FC<SaleModalProps> = ({ lead, targetStatus = 'cerr
           </div>
         </div>
 
-        {/* Tarifas Oficiales Kindev 2026 (1 toque) */}
+        {/* Tarifas Oficiales (Kindev o Miranda según la cuenta activa) */}
         <div className="space-y-2">
-          <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
-            O elige una tarifa base Kindev (1 toque)
-          </label>
+          <div className="flex items-center justify-between">
+            <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+              <Tag className="w-3.5 h-3.5 text-slate-500" />
+              <span>{isMiranda ? 'Tarifas Clave Miranda Dental Studio' : 'Tarifas Base Kindev 2026'}</span>
+            </label>
+            {isMiranda && (
+              <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300">
+                ⭐ Promo $50 Activa
+              </span>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
-            {KINDEV_PRESETS.map((preset) => {
+            {presets.map((preset) => {
               const isSelected = Math.abs(amount - preset.amount) < 0.01;
+              const isPromo50 = isMiranda && preset.amount === 50 && preset.badge?.includes('50');
               return (
                 <button
-                  key={preset.amount}
+                  key={`${preset.label}-${preset.amount}`}
                   type="button"
-                  onClick={() => handleSelectPreset(preset.amount)}
+                  onClick={() => handleSelectPreset(preset.amount, `${preset.label} ($${preset.amount})`)}
                   className={`p-2.5 rounded-xl border text-left transition-all relative ${
                     isSelected
                       ? 'border-emerald-500 bg-emerald-50 text-emerald-950 font-bold ring-2 ring-emerald-500/20 shadow-sm'
+                      : isPromo50
+                      ? 'border-emerald-300 bg-emerald-50/40 hover:bg-emerald-50 text-slate-800'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 text-slate-700'
                   }`}
                 >
                   <div className="flex items-center justify-between text-xs">
                     <span className="truncate">{preset.label}</span>
+                    {preset.badge && (
+                      <span className={`text-[9px] font-extrabold px-1.5 py-0.2 rounded-md ${
+                        isPromo50 ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {preset.badge}
+                      </span>
+                    )}
                   </div>
                   <div className="text-sm font-extrabold text-emerald-600 font-mono mt-0.5">
                     ${preset.amount} USD
@@ -200,6 +250,66 @@ export const SaleModal: React.FC<SaleModalProps> = ({ lead, targetStatus = 'cerr
               );
             })}
           </div>
+
+          {/* Catálogo Completo Dental Expandible para Miranda */}
+          {isMiranda && (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => setShowFullCatalog(!showFullCatalog)}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 text-xs font-bold transition-all"
+              >
+                <div className="flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-emerald-600" />
+                  <span>Ver Catálogo Completo Odontológico (12 Especialidades)</span>
+                </div>
+                {showFullCatalog ? (
+                  <ChevronUp className="w-4 h-4 text-slate-400" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-slate-400" />
+                )}
+              </button>
+
+              {showFullCatalog && (
+                <div className="mt-2 p-3 bg-slate-50/80 rounded-2xl border border-slate-200 max-h-60 overflow-y-auto space-y-3">
+                  <p className="text-[11px] text-slate-500 font-medium">
+                    Toca cualquier tratamiento del Dr. Miranda para cargar automáticamente su precio y concepto:
+                  </p>
+                  {MIRANDA_FULL_CATALOG.map((cat) => (
+                    <div key={cat.category} className="space-y-1.5">
+                      <div className="text-[11px] font-black text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-0.5">
+                        {cat.category}
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {cat.items.map((item) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => handleSelectCatalogItem(item)}
+                            className="p-2 text-left rounded-lg bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition-all group"
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="text-xs font-semibold text-slate-800 group-hover:text-emerald-950 truncate">
+                                {item.name}
+                              </span>
+                              <span className="text-xs font-mono font-black text-emerald-600 shrink-0">
+                                ${item.price}
+                              </span>
+                            </div>
+                            {item.detail && (
+                              <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">
+                                {item.detail}
+                              </p>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Detalle / Concepto Opcional */}
@@ -211,7 +321,7 @@ export const SaleModal: React.FC<SaleModalProps> = ({ lead, targetStatus = 'cerr
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Ej. Anticipo 50%, Web Corporativa + Hosting, etc."
+            placeholder={isMiranda ? "Ej. Promoción Campaña $50, Profilaxis, Resina, etc." : "Ej. Anticipo 50%, Web Corporativa + Hosting, etc."}
             maxLength={120}
             className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 text-xs placeholder-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/10 transition-all"
           />

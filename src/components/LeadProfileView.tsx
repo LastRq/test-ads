@@ -12,15 +12,25 @@ import {
   MessageSquare, 
   Check,
   Zap,
-  Fingerprint
+  Fingerprint,
+  BookOpen,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
-import { Lead, LeadStatus } from '../types';
-import { KINDEV_PRESETS } from '../lib/presets';
+import { Lead, LeadStatus, PricingPreset } from '../types';
+import { 
+  getPresetsForTenant, 
+  isMirandaAccount, 
+  MIRANDA_FULL_CATALOG, 
+  DentalCatalogItem 
+} from '../lib/presets';
 import { CopyPhoneButton } from './CopyPhoneButton';
 import { getCachedClientIp, getFbc, getFbp } from '../lib/meta-tracker';
 
 interface LeadProfileViewProps {
   lead: Lead;
+  tenantId?: string;
+  tenantName?: string;
   onBack: () => void;
   onSaveLead: (leadId: string, updates: Partial<Lead>) => Promise<void>;
   onDeleteLead?: (leadId: string) => Promise<void>;
@@ -30,39 +40,56 @@ interface LeadProfileViewProps {
 
 export const LeadProfileView: React.FC<LeadProfileViewProps> = ({
   lead,
+  tenantId,
+  tenantName,
   onBack,
   onSaveLead,
   onDeleteLead,
   onOpenSaleModal,
   onDispatchPurchase
 }) => {
+  const isMiranda = isMirandaAccount(lead.tenantId || tenantId, tenantName);
+  const presets = getPresetsForTenant(lead.tenantId || tenantId, tenantName);
+
   const [name, setName] = useState(lead.name || '');
   const [phone, setPhone] = useState(lead.phone || '');
   const [email, setEmail] = useState(lead.email || '');
-  const [service, setService] = useState(lead.service || 'Web Corporativa Base ($120)');
-  const [amountInput, setAmountInput] = useState<string>(
-    lead.amount && lead.amount > 0 ? lead.amount.toString() : '0'
+  const [service, setService] = useState(
+    lead.service || (isMiranda ? '⭐ Promoción Campaña Dental ($50 USD)' : 'Web Corporativa Base ($120)')
   );
+  const [amountInput, setAmountInput] = useState<string>(() => {
+    if (lead.amount && lead.amount > 0) return lead.amount.toString();
+    return isMiranda ? '50' : '0';
+  });
   const [status, setStatus] = useState<LeadStatus>(lead.status || 'prospecto');
   const [notes, setNotes] = useState(lead.notes || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showFullCatalog, setShowFullCatalog] = useState(false);
 
   useEffect(() => {
     setName(lead.name || '');
     setPhone(lead.phone || '');
     setEmail(lead.email || '');
-    setService(lead.service || 'Web Corporativa Base ($120)');
+    setService(
+      lead.service || (isMiranda ? '⭐ Promoción Campaña Dental ($50 USD)' : 'Web Corporativa Base ($120)')
+    );
     const val = lead.amount || 0;
-    setAmountInput(val > 0 ? val.toString() : '0');
+    setAmountInput(val > 0 ? val.toString() : (isMiranda ? '50' : '0'));
     setStatus(lead.status || 'prospecto');
     setNotes(lead.notes || '');
-  }, [lead]);
+  }, [lead, isMiranda]);
 
-  const handlePresetSelect = (preset: typeof KINDEV_PRESETS[0]) => {
+  const handlePresetSelect = (preset: PricingPreset) => {
     setService(`${preset.label} ($${preset.amount})`);
     setAmountInput(preset.amount.toString());
+  };
+
+  const handleCatalogSelect = (item: DentalCatalogItem) => {
+    setService(`${item.name} ($${item.price})`);
+    setAmountInput(item.price.toString());
+    setShowFullCatalog(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -347,56 +374,126 @@ export const LeadProfileView: React.FC<LeadProfileViewProps> = ({
             </div>
           </div>
 
-          {/* Bloque: Servicio y Presupuesto Oficial Kindev 2026 */}
+          {/* Bloque: Servicio y Presupuesto Oficial */}
           <div className="bg-white p-5 sm:p-6 rounded-2xl border border-slate-200/60 shadow-[0_1px_3px_rgba(0,0,0,0.02)] space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
                 <Tag className="w-4 h-4 text-emerald-600" />
-                <span>Servicio Contratado y Presupuesto</span>
+                <span>{isMiranda ? 'Tratamiento Dental y Presupuesto' : 'Servicio Contratado y Presupuesto'}</span>
               </h3>
               <span className="text-xs font-mono font-bold text-slate-400">
-                Tarifario Kindev 2026
+                {isMiranda ? 'Miranda Dental Studio' : 'Tarifario Kindev 2026'}
               </span>
             </div>
 
-            {/* Presets Rápidos Oficiales */}
+            {/* Presets Rápidos */}
             <div className="space-y-2">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
-                Selección Rápida de Paquete:
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                  {isMiranda ? 'Tarifas Clave (1 Toque):' : 'Selección Rápida de Paquete:'}
+                </span>
+                {isMiranda && (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full border border-emerald-300">
+                    ⭐ Promo $50 Activa
+                  </span>
+                )}
+              </div>
               <div className="flex flex-wrap gap-2">
-                {KINDEV_PRESETS.map((p) => {
+                {presets.map((p) => {
                   const isSelected = amountInput === p.amount.toString();
+                  const isPromo50 = isMiranda && p.amount === 50 && p.badge?.includes('50');
                   return (
                     <button
-                      key={p.label}
+                      key={`${p.label}-${p.amount}`}
                       type="button"
                       onClick={() => handlePresetSelect(p)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border active:scale-95 ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border active:scale-95 flex items-center gap-1.5 ${
                         isSelected
                           ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                          : isPromo50
+                          ? 'bg-emerald-50 text-emerald-900 border-emerald-300 hover:bg-emerald-100/80'
                           : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80'
                       }`}
                     >
                       <span>{p.label}</span>
-                      <span className="ml-1.5 font-mono opacity-80">${p.amount}</span>
+                      <span className="font-mono opacity-80">${p.amount}</span>
                     </button>
                   );
                 })}
               </div>
             </div>
 
+            {/* Catálogo Completo Dental Expandible para Miranda */}
+            {isMiranda && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowFullCatalog(!showFullCatalog)}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/90 text-slate-700 text-xs font-bold transition-all"
+                >
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-emerald-600" />
+                    <span>Explorar Catálogo Completo Odontológico (12 Especialidades)</span>
+                  </div>
+                  {showFullCatalog ? (
+                    <ChevronUp className="w-4 h-4 text-slate-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400" />
+                  )}
+                </button>
+
+                {showFullCatalog && (
+                  <div className="mt-2 p-3 bg-slate-50/80 rounded-2xl border border-slate-200 max-h-60 overflow-y-auto space-y-3">
+                    <p className="text-[11px] text-slate-500 font-medium">
+                      Toca cualquier tratamiento para asignarlo a este contacto:
+                    </p>
+                    {MIRANDA_FULL_CATALOG.map((cat) => (
+                      <div key={cat.category} className="space-y-1.5">
+                        <div className="text-[11px] font-black text-slate-700 uppercase tracking-wider border-b border-slate-200 pb-0.5">
+                          {cat.category}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                          {cat.items.map((item) => (
+                            <button
+                              key={item.id}
+                              type="button"
+                              onClick={() => handleCatalogSelect(item)}
+                              className="p-2 text-left rounded-lg bg-white border border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition-all group"
+                            >
+                              <div className="flex items-center justify-between gap-1">
+                                <span className="text-xs font-semibold text-slate-800 group-hover:text-emerald-950 truncate">
+                                  {item.name}
+                                </span>
+                                <span className="text-xs font-mono font-black text-emerald-600 shrink-0">
+                                  ${item.price}
+                                </span>
+                              </div>
+                              {item.detail && (
+                                <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5">
+                                  {item.detail}
+                                </p>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Campos de Especificación y Monto */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-xs font-bold text-slate-600">
-                  Concepto o Nombre del Servicio
+                  {isMiranda ? 'Tratamiento o Servicio' : 'Concepto o Nombre del Servicio'}
                 </label>
                 <input
                   type="text"
                   value={service}
                   onChange={(e) => setService(e.target.value)}
-                  placeholder="Ej. Web Corporativa Base ($120)"
+                  placeholder={isMiranda ? "Ej. Promoción Campaña ($50), Profilaxis, Resina..." : "Ej. Web Corporativa Base ($120)"}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-400 transition-all"
                 />
               </div>

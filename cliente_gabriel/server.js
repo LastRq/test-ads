@@ -800,12 +800,23 @@ async function processIncomingMessage(sock, msg, contextSource = 'live') {
       text
     });
 
+    // Detección automática de servicio (Campaña $50 para Dr. Miranda vs Kindev Web)
+    const isMirandaTenant = (process.env.TENANT_ID || '').toLowerCase().includes('miranda') || (process.env.TENANT_ID || '').toLowerCase().includes('gabriel');
+    let autoService = hasMetaAdReferral ? 'Anuncio Meta Ads WhatsApp' : 'Contacto Inicial WhatsApp';
+    if (isMirandaTenant) {
+      if (hasMetaAdReferral || lowerText.includes('50') || lowerText.includes('promo') || lowerText.includes('campaña') || lowerText.includes('campana')) {
+        autoService = 'Promoción Campaña ($50 USD)';
+      } else {
+        autoService = 'Consulta Odontológica WhatsApp';
+      }
+    }
+
     // B.2: Guardar en Firestore con source: 'whatsapp_auto'
     const saved = await saveLeadToFirestore({
       name: pushName,
       phone: cleanPh,
       displayPhone,
-      service: hasMetaAdReferral ? 'Anuncio Meta Ads WhatsApp' : 'Contacto Inicial WhatsApp',
+      service: autoService,
       notes: `Mensaje: "${text}"`,
       source: 'whatsapp_auto',
       eventId: capiRes?.eventId || `wa_${cleanPh}_${Date.now()}`

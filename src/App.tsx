@@ -1410,6 +1410,8 @@ export const App: React.FC = () => {
           {profileLead ? (
             <LeadProfileView
               lead={profileLead}
+              tenantId={activeTenantId}
+              tenantName={activeTenant?.name}
               onBack={() => setProfileLead(null)}
               onSaveLead={handleSaveLeadProfile}
               onDeleteLead={handleDelete}
@@ -1720,6 +1722,8 @@ export const App: React.FC = () => {
       {/* Modal de Cierre de Venta / Anticipo */}
       <SaleModal
         lead={saleLead}
+        tenantId={activeTenantId}
+        tenantName={activeTenant?.name}
         targetStatus={saleTargetStatus}
         onClose={() => setSaleLead(null)}
         onConfirmSale={handleConfirmSale}
@@ -1749,6 +1753,8 @@ export const App: React.FC = () => {
             </div>
             <div className="p-4 sm:p-5 max-h-[85vh] overflow-y-auto">
               <LeadForm 
+                tenantId={activeTenantId}
+                tenantName={activeTenant?.name}
                 onAddLead={async (data) => {
                   await handleAddLead(data);
                   setIsAddLeadModalOpen(false);

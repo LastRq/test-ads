@@ -60,8 +60,8 @@ export const SecurityGate: React.FC<SecurityGateProps> = ({
   onRegisterClient
 }) => {
   const [loginMode, setLoginMode] = useState<'login' | 'register'>('login');
-  const [username, setUsername] = useState('');
-  const [pin, setPin] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [pin, setPin] = useState('admin');
   const [businessName, setBusinessName] = useState('');
   const [phone, setPhone] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -272,8 +272,8 @@ export const SecurityGate: React.FC<SecurityGateProps> = ({
 
     // MODO: INICIO DE SESIÓN DIRECTO (INGRESAR)
     // 1. Verificación directa para cuenta administradora de Kindev (kindevx@gmail.com, admin, kindev) con PIN maestro
-    const isMasterUser = isMasterAccountIdentifier(cleanUser);
-    if ((isMasterUser || !cleanUser) && isMasterPin(cleanPin)) {
+    const isMasterUser = isMasterAccountIdentifier(cleanUser) || cleanUser === 'admin';
+    if ((cleanUser === 'admin' && cleanPin === 'admin') || ((isMasterUser || !cleanUser) && isMasterPin(cleanPin))) {
       completeSession('superadmin', 'kindev');
       return;
     }
@@ -450,7 +450,7 @@ export const SecurityGate: React.FC<SecurityGateProps> = ({
           <p className="text-xs text-slate-500 mt-0.5">
             {loginMode === 'register'
               ? 'Regístrate en segundos para gestionar tus propios leads y campañas.'
-              : 'Ingresa a tu panel con tu cuenta o con Google.'}
+              : 'Credenciales de acceso rápido: admin / admin'}
           </p>
         </div>
 
@@ -490,13 +490,13 @@ export const SecurityGate: React.FC<SecurityGateProps> = ({
               type="button"
               onClick={() => {
                 setUsername('admin');
-                setPin('2026');
+                setPin('admin');
                 completeSession('superadmin', 'kindev');
               }}
               className="w-full py-2.5 px-4 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 active:scale-[0.99] text-white font-bold text-xs shadow-md shadow-violet-500/20 transition-all flex items-center justify-center gap-2"
             >
               <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
-              <span>Acceso Rápido Administrador (Demo / Vercel)</span>
+              <span>Ingresar como Admin (admin / admin)</span>
             </button>
 
             <div className="relative flex items-center justify-center">

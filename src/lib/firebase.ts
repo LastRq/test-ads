@@ -9,12 +9,12 @@ import {
 } from 'firebase/firestore';
 
 const firebaseConfig = {
-  projectId: 'kindevmetaads',
-  appId: '1:180204990500:web:1275e0b3070d8583b328b1',
-  storageBucket: 'kindevmetaads.firebasestorage.app',
-  apiKey: 'AIzaSyDXrSYbXOKVeTabU-YVj0xcQLG0nlPbLoI',
-  authDomain: 'kindevmetaads.firebaseapp.com',
-  messagingSenderId: '180204990500'
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'kindevmetaads',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:180204990500:web:1275e0b3070d8583b328b1',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'kindevmetaads.firebasestorage.app',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyDXrSYbXOKVeTabU-YVj0xcQLG0nlPbLoI',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'kindevmetaads.firebaseapp.com',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '180204990500'
 };
 
 let app: FirebaseApp;

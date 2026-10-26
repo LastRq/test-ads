@@ -95,17 +95,27 @@ export const App: React.FC = () => {
   // 1. Estado de Autenticación / Acceso Multi-Cliente
   const [isUnlocked, setIsUnlocked] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
-    return sessionStorage.getItem('kindev_auth_session') === 'true';
+    return (
+      sessionStorage.getItem('kindev_auth_session') === 'true' ||
+      localStorage.getItem('kindev_auth_session') === 'true'
+    );
   });
 
   const [userRole, setUserRole] = useState<UserRole>(() => {
     if (typeof window === 'undefined') return 'superadmin';
-    return (sessionStorage.getItem('kindev_auth_role') as UserRole) || 'superadmin';
+    return (
+      (sessionStorage.getItem('kindev_auth_role') as UserRole) ||
+      (localStorage.getItem('kindev_auth_role') as UserRole) ||
+      'superadmin'
+    );
   });
 
   const [activeTenantId, setActiveTenantIdState] = useState<string>(() => {
     if (typeof window === 'undefined') return 'kindev';
-    const saved = sessionStorage.getItem('kindev_auth_tenant') || 'kindev';
+    const saved =
+      sessionStorage.getItem('kindev_auth_tenant') ||
+      localStorage.getItem('kindev_auth_tenant') ||
+      'kindev';
     if (saved === 'kindevx' || saved.startsWith('kindevx')) return 'kindev';
     return saved;
   });
@@ -115,6 +125,7 @@ export const App: React.FC = () => {
     setActiveTenantIdState(cleanId);
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('kindev_auth_tenant', cleanId);
+      localStorage.setItem('kindev_auth_tenant', cleanId);
     }
   };
 
@@ -1318,6 +1329,9 @@ export const App: React.FC = () => {
     sessionStorage.removeItem('kindev_auth_session');
     sessionStorage.removeItem('kindev_auth_role');
     sessionStorage.removeItem('kindev_auth_tenant');
+    localStorage.removeItem('kindev_auth_session');
+    localStorage.removeItem('kindev_auth_role');
+    localStorage.removeItem('kindev_auth_tenant');
     signOut(auth).catch(() => {});
     setIsUnlocked(false);
   };

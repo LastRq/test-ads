@@ -119,7 +119,8 @@ export function trackPixelEvent(
   params: Record<string, unknown> = {},
   eventId?: string
 ): void {
-  if (typeof window === 'undefined') return;
+  // Si el píxel está deshabilitado en index.html, salir inmediatamente
+  if (typeof window === 'undefined' || !window.fbq) return;
 
   if (typeof window.fbq === 'function') {
     if (eventId) {

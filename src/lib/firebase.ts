@@ -9,12 +9,12 @@ import {
 } from 'firebase/firestore';
 
 const firebaseConfig = {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'kindevmetaads',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:180204990500:web:1275e0b3070d8583b328b1',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'kindevmetaads.firebasestorage.app',
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyDXrSYbXOKVeTabU-YVj0xcQLG0nlPbLoI',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'kindevmetaads.firebaseapp.com',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '180204990500'
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'test-addss',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:113556212660:web:181a92ccb463b4269bc0e1',
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || 'test-addss.firebasestorage.app',
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'AIzaSyCVSlLvcCrmPYim4WFKT-rfgBoUSUv9uS8',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'test-addss.firebaseapp.com',
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '113556212660'
 };
 
 let app: FirebaseApp;

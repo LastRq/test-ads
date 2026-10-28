@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { collection, doc, addDoc, updateDoc, deleteDoc, onSnapshot, setDoc } from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
+import { signOut, onAuthStateChanged } from 'firebase/auth';
 import { Search, Filter, ChevronLeft, ChevronRight, X, UserPlus } from 'lucide-react';
 import { db, auth, cleanFirestoreData } from './lib/firebase';
 import { 
@@ -18,7 +18,7 @@ import {
 import { dispatchMetaCAPI } from './lib/meta-capi';
 import { getFbc, getFbp, generateEventId, trackPixelEvent, getClientIp, getCachedClientIp, captureAndStoreFbclid } from './lib/meta-tracker';
 import { userTelemetry } from './lib/user-telemetry';
-import { SecurityGate } from './components/SecurityGate';
+import { SecurityGate, isMasterAccountIdentifier } from './components/SecurityGate';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { KanbanBoard } from './components/KanbanBoard';
@@ -128,6 +128,35 @@ export const App: React.FC = () => {
       localStorage.setItem('kindev_auth_tenant', cleanId);
     }
   };
+
+  // Sincronización en tiempo real con Firebase Auth
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        const email = (firebaseUser.email || '').trim().toLowerCase();
+        const isMaster = isMasterAccountIdentifier(email);
+        const role: UserRole = isMaster ? 'superadmin' : 'client';
+        const tenantId = isMaster
+          ? 'kindev'
+          : sessionStorage.getItem('kindev_auth_tenant') ||
+            localStorage.getItem('kindev_auth_tenant') ||
+            'kindev';
+
+        sessionStorage.setItem('kindev_auth_session', 'true');
+        sessionStorage.setItem('kindev_auth_role', role);
+        sessionStorage.setItem('kindev_auth_tenant', tenantId);
+        localStorage.setItem('kindev_auth_session', 'true');
+        localStorage.setItem('kindev_auth_role', role);
+        localStorage.setItem('kindev_auth_tenant', tenantId);
+
+        setUserRole(role);
+        setActiveTenantIdState(tenantId);
+        setIsUnlocked(true);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const CLIENTS_STORAGE_KEY = 'kindev_clients_registry';
   const [clients, setClients] = useState<ClientAccount[]>(() => {

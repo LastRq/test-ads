@@ -34,7 +34,8 @@ const SUPERADMIN_EMAILS = [
   'kindev@gmail.com',
   'mkmcmiyako@gmail.com',
   'admin@kindev.ec',
-  'kindev@admin.com'
+  'kindev@admin.com',
+  'guygamerxd@gmail.com'
 ];
 
 export const MASTER_PINS = ['kindev2026', '2026', 'admin', 'admin123', '123456'];
@@ -295,6 +296,7 @@ export const SecurityGate: React.FC<SecurityGateProps> = ({
               });
             }
           }
+
         } catch {
           // ignore
         }
@@ -371,8 +373,23 @@ export const SecurityGate: React.FC<SecurityGateProps> = ({
           }
           completeSession('client', recoveredClient.id);
           return;
-        } catch {
-          // Fallback tolerante si Firebase Auth no está activo o dominio no está autorizado
+
+
+        } catch (fbErr: unknown) {
+          const fbCode = (fbErr as { code?: string })?.code || '';
+          if (fbCode === 'auth/invalid-credential' || fbCode === 'auth/wrong-password') {
+            setError(true);
+            setErrorMessage('Contraseña incorrecta para esta cuenta en Firebase.');
+            return;
+          } else if (fbCode === 'auth/user-not-found') {
+            setError(true);
+            setErrorMessage('No existe un usuario con este correo en Firebase. Por favor regístrate.');
+            return;
+          } else if (fbCode === 'auth/too-many-requests') {
+            setError(true);
+            setErrorMessage('Demasiados intentos fallidos. Intenta más tarde.');
+            return;
+          }
         }
       }
 

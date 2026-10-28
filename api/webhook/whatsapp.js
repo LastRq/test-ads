@@ -30,7 +30,7 @@ export default async function handler(req, res) {
         name: { stringValue: String(name).substring(0, 100) },
         phone: { stringValue: cleanPh.substring(0, 20) },
         displayPhone: { stringValue: String(rawPhone).startsWith('+') ? String(rawPhone) : `+${cleanPh}` },
-        service: { stringValue: 'Contacto Inicial WhatsApp' },
+        service: { stringValue: String(body.service || 'Contacto Inicial WhatsApp').substring(0, 100) },
         notes: { stringValue: message ? `Mensaje: "${message}"` : 'Auto-registrado desde WhatsApp' },
         status: { stringValue: 'prospecto' },
         amount: { doubleValue: 0 },
